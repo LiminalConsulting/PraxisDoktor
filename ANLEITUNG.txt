@@ -1,0 +1,28 @@
+PraxisDoktor — Installationsanleitung
+======================================
+
+Schritt 1: Ollama installieren
+  - OllamaSetup.exe ausfuehren und den Anweisungen folgen.
+
+Schritt 2: KI-Sprachmodell herunterladen
+  - Eingabeaufforderung (cmd) oeffnen und eingeben:
+      ollama pull llama3.1:8b
+  - Dieser Schritt dauert einige Minuten (ca. 4,7 GB Download).
+  - Einmalig notwendig.
+
+Schritt 3: PraxisDoktor starten
+  - PraxisDoktor.exe per Doppelklick starten.
+  - Ein schwarzes Fenster erscheint — das ist normal, bitte offen lassen.
+
+Schritt 4: Browser oeffnen
+  - Auf diesem Computer:    http://localhost:8080
+  - Von anderen Computern:  http://[IP-Adresse-des-Servers]:8080
+    (IP-Adresse z.B. 192.168.1.x — beim IT-Verantwortlichen erfragen)
+
+Hinweise:
+  - Das schwarze Fenster (Server) muss waehrend der Nutzung geoeffnet bleiben.
+  - Alle Sitzungsdaten werden lokal in praxisdoktor.db gespeichert.
+  - Audiodateien werden im Ordner "audio" neben der .exe abgelegt.
+  - Keine Daten verlassen das lokale Netzwerk.
+
+Bei Problemen: david@realdeal.de

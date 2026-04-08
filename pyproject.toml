@@ -1,0 +1,21 @@
+[project]
+name = "praxisdoktor"
+version = "1.0.0"
+description = "New patient registration assistant for urology practice"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "faster-whisper",
+    "easyocr",
+    "httpx",
+    "aiofiles",
+    "python-multipart",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]

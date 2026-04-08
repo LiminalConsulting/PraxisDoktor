@@ -1,0 +1,55 @@
+name: Build & Release Windows EXE
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Build EXE with PyInstaller
+        run: |
+          uv run pyinstaller --onefile --name PraxisDoktor `
+            --add-data "static;static" `
+            --add-data "vocab_default.json;." `
+            main.py
+
+      - name: Download Ollama installer
+        run: |
+          Invoke-WebRequest -Uri "https://ollama.com/download/OllamaSetup.exe" `
+            -OutFile "dist\OllamaSetup.exe"
+        shell: powershell
+
+      - name: Copy ANLEITUNG.txt
+        run: copy ANLEITUNG.txt dist\ANLEITUNG.txt
+
+      - name: Create release ZIP
+        run: |
+          $tag = "${{ github.ref_name }}"
+          Compress-Archive -Path dist\PraxisDoktor.exe, dist\OllamaSetup.exe, dist\ANLEITUNG.txt `
+            -DestinationPath "PraxisDoktor-$tag.zip"
+        shell: powershell
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: "PraxisDoktor-*.zip"
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PraxisDoktor — Patientenaufnahme</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>PraxisDoktor</h1>
+    <span class="subtitle">Patientenaufnahme</span>
+  </div>
+  <button id="settings-btn" title="Einstellungen">&#9881;</button>
+</header>
+
+<div class="main-area">
+  <!-- LEFT: Eingabe -->
+  <div class="panel panel-left">
+    <div class="panel-header">Eingabe</div>
+    <div class="panel-body">
+
+      <div class="field-group">
+        <label for="patient-ref">Patientenname (zur Identifikation)</label>
+        <input type="text" id="patient-ref" placeholder="z.B. Müller, Hans">
+      </div>
+
+      <button class="btn btn-primary btn-full" id="start-btn">Neue Sitzung starten</button>
+
+      <div id="recording-section">
+        <div class="record-wrap">
+          <button id="record-btn" title="Aufnahme starten">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>
+          </button>
+          <span class="record-label" id="record-label">Klicken zum Aufnehmen</span>
+        </div>
+
+        <button class="btn btn-outline btn-full" id="stop-btn" disabled>
+          Sitzung beenden &amp; Auswertung starten
+        </button>
+
+        <div class="status-bar" id="status-bar">Bereit</div>
+
+        <!-- Drop zone for form image -->
+        <div class="drop-zone" id="drop-zone">
+          <input type="file" id="form-file" accept="image/*,.pdf">
+          <div>&#128206; Anamnesebogen hier ablegen</div>
+          <div style="font-size:0.75rem;margin-top:4px;color:inherit">oder klicken zum Auswählen</div>
+        </div>
+
+        <div class="ocr-block" id="ocr-block" style="display:none">
+          <button class="ocr-toggle" id="ocr-toggle">&#9654; OCR-Text anzeigen</button>
+          <pre class="ocr-text" id="ocr-text"></pre>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- RIGHT: Patientendaten -->
+  <div class="panel panel-right">
+    <div class="panel-header">Patientendaten</div>
+    <div class="panel-body" id="right-body">
+
+      <div id="empty-state" style="color:var(--grey);font-size:0.9rem;padding-top:40px;text-align:center">
+        Starte eine neue Sitzung, um Patientendaten zu extrahieren.
+      </div>
+
+      <div id="fields-container" style="display:none">
+        <div class="fields-grid" id="fields-grid"></div>
+        <div class="done-btn-wrap">
+          <button class="btn btn-full" id="done-btn">
+            &#10003; In MediOffice übertragen
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- HISTORY BAR -->
+<div class="history-bar">
+  <button class="history-toggle" id="history-toggle">
+    <span id="history-arrow">&#9660;</span> Verlauf
+  </button>
+  <div class="history-list" id="history-list"></div>
+</div>
+
+<!-- SETTINGS OVERLAY + PANEL -->
+<div id="settings-overlay"></div>
+<div id="settings-panel">
+  <div class="settings-header">
+    <h2>Einstellungen — Vokabular</h2>
+    <button id="settings-close">&times;</button>
+  </div>
+  <div class="settings-body">
+    <h3>Begriffe für Whisper-Transkription</h3>
+    <div class="vocab-tags" id="vocab-tags"></div>
+    <div class="vocab-add">
+      <input type="text" id="vocab-input" placeholder="Neuer Begriff...">
+      <button class="btn btn-primary" id="vocab-add-btn">Hinzufügen</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
