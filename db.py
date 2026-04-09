@@ -20,8 +20,10 @@ def init_db():
                 id          TEXT PRIMARY KEY,
                 created_at  TEXT NOT NULL,
                 patient_ref TEXT,
+                doctor_name TEXT,
                 audio_path  TEXT,
                 transcript  TEXT,
+                diarized    TEXT,
                 ocr_text    TEXT,
                 extracted   TEXT,
                 status      TEXT DEFAULT 'processing',
@@ -32,18 +34,37 @@ def init_db():
                 id    INTEGER PRIMARY KEY AUTOINCREMENT,
                 term  TEXT NOT NULL UNIQUE
             );
+
+            CREATE TABLE IF NOT EXISTS doctors (
+                id    INTEGER PRIMARY KEY AUTOINCREMENT,
+                name  TEXT NOT NULL UNIQUE
+            );
+
+            CREATE TABLE IF NOT EXISTS settings (
+                key   TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
         """)
+        # Migrate: add columns if upgrading from older schema
+        for col, typedef in [
+            ("doctor_name", "TEXT"),
+            ("diarized",    "TEXT"),
+        ]:
+            try:
+                conn.execute(f"ALTER TABLE sessions ADD COLUMN {col} {typedef}")
+            except Exception:
+                pass
 
 
 # --- Sessions ---
 
-def create_session(patient_ref: str) -> dict:
+def create_session(patient_ref: str, doctor_name: str | None = None) -> dict:
     sid = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc).isoformat()
     with get_conn() as conn:
         conn.execute(
-            "INSERT INTO sessions (id, created_at, patient_ref, status) VALUES (?, ?, ?, 'processing')",
-            (sid, created_at, patient_ref),
+            "INSERT INTO sessions (id, created_at, patient_ref, doctor_name, status) VALUES (?, ?, ?, ?, 'processing')",
+            (sid, created_at, patient_ref, doctor_name),
         )
     return get_session(sid)
 
@@ -101,4 +122,38 @@ def seed_vocab(terms: list[str]):
         conn.executemany(
             "INSERT OR IGNORE INTO vocab (term) VALUES (?)",
             [(t,) for t in terms],
+        )
+
+
+# --- Doctors ---
+
+def get_doctors() -> list[str]:
+    with get_conn() as conn:
+        rows = conn.execute("SELECT name FROM doctors ORDER BY name").fetchall()
+    return [r["name"] for r in rows]
+
+
+def add_doctor(name: str):
+    with get_conn() as conn:
+        conn.execute("INSERT OR IGNORE INTO doctors (name) VALUES (?)", (name.strip(),))
+
+
+def remove_doctor(name: str):
+    with get_conn() as conn:
+        conn.execute("DELETE FROM doctors WHERE name = ?", (name.strip(),))
+
+
+# --- Settings ---
+
+def get_setting(key: str, default: str | None = None) -> str | None:
+    with get_conn() as conn:
+        row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+    return row["value"] if row else default
+
+
+def set_setting(key: str, value: str):
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            (key, value),
         )

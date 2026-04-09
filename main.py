@@ -1,7 +1,6 @@
 from __future__ import annotations
 import asyncio
 import json
-import shutil
 import uuid
 from pathlib import Path
 from typing import AsyncGenerator
@@ -64,8 +63,11 @@ def get_session(sid: str):
 
 
 @app.post("/sessions", status_code=201)
-def create_session(patient_ref: str = Form(...)):
-    return db.create_session(patient_ref)
+def create_session(
+    patient_ref: str = Form(...),
+    doctor_name: str = Form(default=""),
+):
+    return db.create_session(patient_ref, doctor_name or None)
 
 
 @app.post("/sessions/{sid}/audio")
@@ -121,7 +123,6 @@ async def stream(sid: str):
 
     async def event_generator() -> AsyncGenerator[str, None]:
         try:
-            # Send current state immediately
             session = db.get_session(sid)
             if session:
                 yield _sse_fmt({"type": "snapshot", "session": session})
@@ -146,17 +147,25 @@ def _sse_fmt(data: dict) -> str:
 async def _process_audio(sid: str, audio_path: str):
     loop = asyncio.get_event_loop()
     try:
+        session = db.get_session(sid)
+        patient_ref = session.get("patient_ref") or ""
+        doctor_name = session.get("doctor_name") or ""
+
+        # Build vocab: base terms + any names present in UI
         vocab_terms = vocab_mod.get_all()
+        name_terms = _extract_name_terms(patient_ref, doctor_name)
+        all_terms = vocab_terms + [t for t in name_terms if t not in vocab_terms]
+
         transcript = await loop.run_in_executor(
-            None, transcribe.transcribe, audio_path, vocab_terms
+            None, transcribe.transcribe, audio_path, all_terms
         )
         db.update_session(sid, transcript=transcript)
         _notify(sid, {"type": "transcript", "transcript": transcript, "message": "Auswertung läuft..."})
 
-        session = db.get_session(sid)
+        # Field extraction
         ocr_text = session.get("ocr_text") or ""
         extracted = await loop.run_in_executor(
-            None, llm.extract_fields, transcript, ocr_text
+            None, llm.extract_fields, transcript, ocr_text, patient_ref, doctor_name
         )
         extracted_json = json.dumps(extracted, ensure_ascii=False)
         db.update_session(sid, extracted=extracted_json, status="ready")
@@ -166,6 +175,22 @@ async def _process_audio(sid: str, audio_path: str):
             "status": "ready",
             "message": "Bereit",
         })
+
+        # Speaker diarization (if enabled) — runs after user sees results
+        diarization_enabled = db.get_setting("diarization_enabled", "true") == "true"
+        if diarization_enabled:
+            _notify(sid, {"type": "status", "status": "ready", "message": "Sprecher werden erkannt..."})
+            try:
+                import diarize
+                diarized = await loop.run_in_executor(
+                    None, diarize.diarize, audio_path, transcript, patient_ref, doctor_name
+                )
+                db.update_session(sid, diarized=diarized)
+                _notify(sid, {"type": "diarized", "diarized": diarized, "message": "Bereit"})
+            except Exception as e:
+                # Diarization failure is non-fatal
+                _notify(sid, {"type": "status", "status": "ready", "message": f"Bereit (Sprechererkennung fehlgeschlagen: {e})"})
+
     except Exception as e:
         db.update_session(sid, status="error")
         _notify(sid, {"type": "error", "message": str(e)})
@@ -178,11 +203,12 @@ async def _process_form(sid: str, form_path: str):
         db.update_session(sid, ocr_text=ocr_text)
         _notify(sid, {"type": "ocr", "ocr_text": ocr_text, "message": "OCR abgeschlossen"})
 
-        # If transcript already present, re-run extraction with OCR data
         session = db.get_session(sid)
         if session.get("transcript"):
+            patient_ref = session.get("patient_ref") or ""
+            doctor_name = session.get("doctor_name") or ""
             extracted = await loop.run_in_executor(
-                None, llm.extract_fields, session["transcript"], ocr_text
+                None, llm.extract_fields, session["transcript"], ocr_text, patient_ref, doctor_name
             )
             extracted_json = json.dumps(extracted, ensure_ascii=False)
             db.update_session(sid, extracted=extracted_json, status="ready")
@@ -194,6 +220,18 @@ async def _process_form(sid: str, form_path: str):
             })
     except Exception as e:
         _notify(sid, {"type": "error", "message": f"OCR Fehler: {e}"})
+
+
+def _extract_name_terms(patient_ref: str, doctor_name: str) -> list[str]:
+    """Split full names into individual tokens for Whisper vocab injection."""
+    terms = []
+    for name in [patient_ref, doctor_name]:
+        if name:
+            for part in name.replace(",", " ").split():
+                part = part.strip()
+                if part and len(part) > 1:
+                    terms.append(part)
+    return terms
 
 
 # --- Vocab ---
@@ -212,6 +250,38 @@ def add_vocab(term: str = Form(...)):
 @app.delete("/vocab/{term}")
 def delete_vocab(term: str):
     vocab_mod.remove(term)
+    return {"ok": True}
+
+
+# --- Doctors ---
+
+@app.get("/doctors")
+def get_doctors():
+    return db.get_doctors()
+
+
+@app.post("/doctors", status_code=201)
+def add_doctor(name: str = Form(...)):
+    db.add_doctor(name)
+    return {"ok": True}
+
+
+@app.delete("/doctors/{name}")
+def delete_doctor(name: str):
+    db.remove_doctor(name)
+    return {"ok": True}
+
+
+# --- Settings ---
+
+@app.get("/settings/{key}")
+def get_setting(key: str):
+    return {"key": key, "value": db.get_setting(key)}
+
+
+@app.post("/settings/{key}")
+def set_setting(key: str, value: str = Form(...)):
+    db.set_setting(key, value)
     return {"ok": True}
 
 

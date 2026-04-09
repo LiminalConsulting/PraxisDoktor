@@ -28,7 +28,16 @@
     <div class="panel-body">
 
       <div class="field-group">
-        <label for="patient-ref">Patientenname (zur Identifikation)</label>
+        <label for="doctor-select">Arzt / Ärztin</label>
+        <div class="select-wrap">
+          <select id="doctor-select">
+            <option value="">— Arzt auswählen —</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label for="patient-ref">Patientenname</label>
         <input type="text" id="patient-ref" placeholder="z.B. Müller, Hans">
       </div>
 
@@ -64,7 +73,7 @@
     </div>
   </div>
 
-  <!-- RIGHT: Patientendaten -->
+  <!-- RIGHT: Patientendaten + Transkript -->
   <div class="panel panel-right">
     <div class="panel-header">Patientendaten</div>
     <div class="panel-body" id="right-body">
@@ -75,6 +84,13 @@
 
       <div id="fields-container" style="display:none">
         <div class="fields-grid" id="fields-grid"></div>
+
+        <!-- Diarized transcript -->
+        <div id="diarized-block" style="display:none; margin-top:24px;">
+          <div class="panel-header" style="margin: 0 -20px 12px; padding-left:20px;">Gesprächsprotokoll</div>
+          <div id="diarized-content" class="diarized-transcript"></div>
+        </div>
+
         <div class="done-btn-wrap">
           <button class="btn btn-full" id="done-btn">
             &#10003; In MediOffice übertragen
@@ -98,16 +114,37 @@
 <div id="settings-overlay"></div>
 <div id="settings-panel">
   <div class="settings-header">
-    <h2>Einstellungen — Vokabular</h2>
+    <h2>Einstellungen</h2>
     <button id="settings-close">&times;</button>
   </div>
   <div class="settings-body">
-    <h3>Begriffe für Whisper-Transkription</h3>
+
+    <h3>Ärzte</h3>
+    <div class="vocab-tags" id="doctor-tags"></div>
+    <div class="vocab-add">
+      <input type="text" id="doctor-input" placeholder="Name des Arztes...">
+      <button class="btn btn-primary" id="doctor-add-btn">Hinzufügen</button>
+    </div>
+
+    <div class="settings-divider"></div>
+
+    <h3>Sprechererkennung</h3>
+    <label class="toggle-row">
+      <span>Automatische Sprechertrennung aktivieren</span>
+      <input type="checkbox" id="diarization-toggle">
+      <span class="toggle-knob"></span>
+    </label>
+    <p class="settings-hint">Erkennt Arzt und Patient im Transkript. Läuft im Hintergrund (2–3 Min. nach Aufnahme).</p>
+
+    <div class="settings-divider"></div>
+
+    <h3>Vokabular für Transkription</h3>
     <div class="vocab-tags" id="vocab-tags"></div>
     <div class="vocab-add">
       <input type="text" id="vocab-input" placeholder="Neuer Begriff...">
       <button class="btn btn-primary" id="vocab-add-btn">Hinzufügen</button>
     </div>
+
   </div>
 </div>
 

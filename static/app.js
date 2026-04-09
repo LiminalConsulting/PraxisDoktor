@@ -22,36 +22,77 @@ let mediaRecorder = null;
 let audioChunks = [];
 let isRecording = false;
 let sseSource = null;
+let wakeLock = null;
+let silentAudio = null;
 
 // --- Elements ---
-const startBtn      = document.getElementById("start-btn");
-const patientRef    = document.getElementById("patient-ref");
-const recordSection = document.getElementById("recording-section");
-const recordBtn     = document.getElementById("record-btn");
-const recordLabel   = document.getElementById("record-label");
-const stopBtn       = document.getElementById("stop-btn");
-const statusBar     = document.getElementById("status-bar");
-const dropZone      = document.getElementById("drop-zone");
-const formFile      = document.getElementById("form-file");
-const ocrBlock      = document.getElementById("ocr-block");
-const ocrToggle     = document.getElementById("ocr-toggle");
-const ocrText       = document.getElementById("ocr-text");
-const emptyState    = document.getElementById("empty-state");
+const startBtn        = document.getElementById("start-btn");
+const doctorSelect    = document.getElementById("doctor-select");
+const patientRef      = document.getElementById("patient-ref");
+const recordSection   = document.getElementById("recording-section");
+const recordBtn       = document.getElementById("record-btn");
+const recordLabel     = document.getElementById("record-label");
+const stopBtn         = document.getElementById("stop-btn");
+const statusBar       = document.getElementById("status-bar");
+const dropZone        = document.getElementById("drop-zone");
+const formFile        = document.getElementById("form-file");
+const ocrBlock        = document.getElementById("ocr-block");
+const ocrToggle       = document.getElementById("ocr-toggle");
+const ocrText         = document.getElementById("ocr-text");
+const emptyState      = document.getElementById("empty-state");
 const fieldsContainer = document.getElementById("fields-container");
-const fieldsGrid    = document.getElementById("fields-grid");
-const doneBtn       = document.getElementById("done-btn");
-const historyToggle = document.getElementById("history-toggle");
-const historyList   = document.getElementById("history-list");
-const historyArrow  = document.getElementById("history-arrow");
+const fieldsGrid      = document.getElementById("fields-grid");
+const doneBtn         = document.getElementById("done-btn");
+const historyToggle   = document.getElementById("history-toggle");
+const historyList     = document.getElementById("history-list");
+const historyArrow    = document.getElementById("history-arrow");
+const diarizedBlock   = document.getElementById("diarized-block");
+const diarizedContent = document.getElementById("diarized-content");
 
 // Settings
-const settingsBtn    = document.getElementById("settings-btn");
-const settingsPanel  = document.getElementById("settings-panel");
-const settingsOverlay= document.getElementById("settings-overlay");
-const settingsClose  = document.getElementById("settings-close");
-const vocabTags      = document.getElementById("vocab-tags");
-const vocabInput     = document.getElementById("vocab-input");
-const vocabAddBtn    = document.getElementById("vocab-add-btn");
+const settingsBtn       = document.getElementById("settings-btn");
+const settingsPanel     = document.getElementById("settings-panel");
+const settingsOverlay   = document.getElementById("settings-overlay");
+const settingsClose     = document.getElementById("settings-close");
+const vocabTags         = document.getElementById("vocab-tags");
+const vocabInput        = document.getElementById("vocab-input");
+const vocabAddBtn       = document.getElementById("vocab-add-btn");
+const doctorTags        = document.getElementById("doctor-tags");
+const doctorInput       = document.getElementById("doctor-input");
+const doctorAddBtn      = document.getElementById("doctor-add-btn");
+const diarizationToggle = document.getElementById("diarization-toggle");
+
+// --- Wake lock: keep screen/audio alive on Android ---
+async function acquireWakeLock() {
+  // Try Screen Wake Lock API first (Chrome Android 84+)
+  if ("wakeLock" in navigator) {
+    try {
+      wakeLock = await navigator.wakeLock.request("screen");
+      return;
+    } catch (_) {}
+  }
+  // Fallback: play a looping silent audio to prevent background tab suspension
+  if (!silentAudio) {
+    // 1 second of silence as base64 MP3
+    const silentMp3 = "data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBQbHVzIMKpIE5DSCBTb2Z0d2FyZQBUSVQyAAAABgAAAzIyMzUAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAABpAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV";
+    silentAudio = new Audio(silentMp3);
+    silentAudio.loop = true;
+    silentAudio.volume = 0.001;
+  }
+  silentAudio.play().catch(() => {});
+}
+
+function releaseWakeLock() {
+  if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+  if (silentAudio) { silentAudio.pause(); }
+}
+
+// Re-acquire wake lock if page becomes visible again (Android Chrome releases it on tab switch)
+document.addEventListener("visibilitychange", async () => {
+  if (isRecording && document.visibilityState === "visible" && "wakeLock" in navigator) {
+    try { wakeLock = await navigator.wakeLock.request("screen"); } catch (_) {}
+  }
+});
 
 // --- Session start ---
 startBtn.addEventListener("click", async () => {
@@ -60,12 +101,14 @@ startBtn.addEventListener("click", async () => {
 
   const fd = new FormData();
   fd.append("patient_ref", ref);
+  fd.append("doctor_name", doctorSelect.value || "");
   const resp = await fetch("/sessions", { method: "POST", body: fd });
   const session = await resp.json();
   loadSession(session);
   recordSection.style.display = "block";
   startBtn.disabled = true;
   patientRef.disabled = true;
+  doctorSelect.disabled = true;
   setStatus("processing", "Bereit zur Aufnahme");
 });
 
@@ -89,6 +132,7 @@ async function startRecording() {
     recordBtn.classList.add("recording");
     recordLabel.textContent = "Aufnahme läuft...";
     stopBtn.disabled = false;
+    await acquireWakeLock();
   } catch (err) {
     setStatus("error", "Mikrofon-Zugriff verweigert: " + err.message);
   }
@@ -101,6 +145,7 @@ function stopRecording() {
   isRecording = false;
   recordBtn.classList.remove("recording");
   recordLabel.textContent = "Aufnahme beendet";
+  releaseWakeLock();
 }
 
 stopBtn.addEventListener("click", async () => {
@@ -108,7 +153,7 @@ stopBtn.addEventListener("click", async () => {
   stopBtn.disabled = true;
   recordBtn.disabled = true;
 
-  await new Promise(r => setTimeout(r, 400)); // wait for final chunk
+  await new Promise(r => setTimeout(r, 400));
   const mimeType = mediaRecorder?.mimeType || "audio/webm";
   const ext = mimeType.includes("ogg") ? ".ogg" : mimeType.includes("mp4") ? ".mp4" : ".webm";
   const blob = new Blob(audioChunks, { type: mimeType });
@@ -168,9 +213,10 @@ function handleSSE(msg) {
     showOCR(msg.ocr_text);
     setStatus("processing", msg.message || "OCR abgeschlossen");
   } else if (msg.type === "extracted") {
-    renderFields(JSON.parse(msg.extracted !== undefined
-      ? JSON.stringify(msg.extracted)
-      : "{}"));
+    renderFields(msg.extracted || {});
+    setStatus("ready", msg.message || "Bereit");
+  } else if (msg.type === "diarized") {
+    showDiarized(msg.diarized);
     setStatus("ready", msg.message || "Bereit");
   } else if (msg.type === "status") {
     setStatus(msg.status, msg.message);
@@ -185,6 +231,7 @@ function applySession(session) {
   if (session.extracted) {
     try { renderFields(JSON.parse(session.extracted)); } catch {}
   }
+  if (session.diarized) showDiarized(session.diarized);
   setStatus(session.status, statusLabel(session.status));
   if (session.status === "done") markDoneUI();
 }
@@ -210,7 +257,6 @@ function renderFields(data) {
       </div>`;
     fieldsGrid.appendChild(card);
   }
-  // Copy buttons
   fieldsGrid.querySelectorAll(".copy-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       navigator.clipboard.writeText(btn.dataset.val).then(() => {
@@ -224,6 +270,32 @@ function renderFields(data) {
 
 function escHtml(s) {
   return s.replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+// --- Diarized transcript ---
+function showDiarized(text) {
+  if (!text) return;
+  diarizedBlock.style.display = "block";
+  diarizedContent.innerHTML = "";
+  // Format: "ARZT: text\nPATIENT: text\n..."
+  const lines = text.split("\n");
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const colonIdx = line.indexOf(":");
+    if (colonIdx > 0) {
+      const speaker = line.slice(0, colonIdx).trim();
+      const speech = line.slice(colonIdx + 1).trim();
+      const div = document.createElement("div");
+      div.className = "diarized-line";
+      div.innerHTML = `<span class="diarized-speaker">${escHtml(speaker)}</span><span class="diarized-text">${escHtml(speech)}</span>`;
+      diarizedContent.appendChild(div);
+    } else {
+      const div = document.createElement("div");
+      div.className = "diarized-line";
+      div.innerHTML = `<span class="diarized-text">${escHtml(line)}</span>`;
+      diarizedContent.appendChild(div);
+    }
+  }
 }
 
 // --- Done button ---
@@ -260,6 +332,7 @@ function loadSession(session) {
   emptyState.style.display = "none";
   fieldsContainer.style.display = "block";
   fieldsGrid.innerHTML = "";
+  diarizedBlock.style.display = "none";
   for (const { key, label } of FIELD_DEFS) {
     const card = document.createElement("div");
     card.className = "field-card";
@@ -284,6 +357,7 @@ async function loadHistory() {
     row.innerHTML = `
       <span class="h-date">${date}</span>
       <span class="h-name">${escHtml(s.patient_ref || "(kein Name)")}</span>
+      ${s.doctor_name ? `<span class="h-doctor">${escHtml(s.doctor_name)}</span>` : ""}
       <span class="badge badge-${s.status}">${badgeLabel(s.status)}</span>`;
     row.addEventListener("click", () => restoreSession(s));
     historyList.appendChild(row);
@@ -300,11 +374,13 @@ async function restoreSession(session) {
   startBtn.disabled = true;
   patientRef.value = session.patient_ref || "";
   patientRef.disabled = true;
+  doctorSelect.disabled = true;
   connectSSE(session.id);
   if (session.ocr_text) showOCR(session.ocr_text);
   if (session.extracted) {
     try { renderFields(JSON.parse(session.extracted)); } catch {}
   }
+  if (session.diarized) showDiarized(session.diarized);
   if (session.status === "done") markDoneUI();
   setStatus(session.status, statusLabel(session.status));
 }
@@ -318,6 +394,8 @@ function openSettings() {
   settingsPanel.classList.add("open");
   settingsOverlay.classList.add("open");
   loadVocab();
+  loadDoctorTags();
+  loadDiarizationToggle();
 }
 function closeSettings() {
   settingsPanel.classList.remove("open");
@@ -352,5 +430,62 @@ async function addVocab() {
   loadVocab();
 }
 
+// --- Doctors ---
+async function loadDoctors() {
+  const doctors = await fetch("/doctors").then(r => r.json());
+  const prev = doctorSelect.value;
+  doctorSelect.innerHTML = '<option value="">— Arzt auswählen —</option>';
+  for (const name of doctors) {
+    const opt = document.createElement("option");
+    opt.value = name;
+    opt.textContent = name;
+    doctorSelect.appendChild(opt);
+  }
+  if (prev) doctorSelect.value = prev;
+}
+
+async function loadDoctorTags() {
+  const doctors = await fetch("/doctors").then(r => r.json());
+  doctorTags.innerHTML = "";
+  for (const name of doctors) {
+    const tag = document.createElement("div");
+    tag.className = "vocab-tag";
+    tag.innerHTML = `<span>${escHtml(name)}</span><button title="Entfernen">&times;</button>`;
+    tag.querySelector("button").addEventListener("click", async () => {
+      await fetch(`/doctors/${encodeURIComponent(name)}`, { method: "DELETE" });
+      loadDoctorTags();
+      loadDoctors();
+    });
+    doctorTags.appendChild(tag);
+  }
+}
+
+doctorAddBtn.addEventListener("click", addDoctor);
+doctorInput.addEventListener("keydown", e => { if (e.key === "Enter") addDoctor(); });
+
+async function addDoctor() {
+  const name = doctorInput.value.trim();
+  if (!name) return;
+  const fd = new FormData();
+  fd.append("name", name);
+  await fetch("/doctors", { method: "POST", body: fd });
+  doctorInput.value = "";
+  loadDoctorTags();
+  loadDoctors();
+}
+
+// --- Diarization toggle ---
+async function loadDiarizationToggle() {
+  const resp = await fetch("/settings/diarization_enabled").then(r => r.json());
+  diarizationToggle.checked = (resp.value ?? "true") === "true";
+}
+
+diarizationToggle.addEventListener("change", async () => {
+  const fd = new FormData();
+  fd.append("value", diarizationToggle.checked ? "true" : "false");
+  await fetch("/settings/diarization_enabled", { method: "POST", body: fd });
+});
+
 // --- Init ---
 loadHistory();
+loadDoctors();
