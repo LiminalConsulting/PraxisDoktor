@@ -182,8 +182,9 @@ async def _process_audio(sid: str, audio_path: str):
             _notify(sid, {"type": "status", "status": "ready", "message": "Sprecher werden erkannt..."})
             try:
                 import diarize
+                doctor_embedding = db.get_doctor_embedding(doctor_name) if doctor_name else None
                 diarized = await loop.run_in_executor(
-                    None, diarize.diarize, audio_path, transcript, patient_ref, doctor_name
+                    None, diarize.diarize, audio_path, transcript, patient_ref, doctor_name, doctor_embedding
                 )
                 db.update_session(sid, diarized=diarized)
                 _notify(sid, {"type": "diarized", "diarized": diarized, "message": "Bereit"})
@@ -270,6 +271,49 @@ def add_doctor(name: str = Form(...)):
 def delete_doctor(name: str):
     db.remove_doctor(name)
     return {"ok": True}
+
+
+@app.post("/doctors/{name}/enroll")
+async def enroll_doctor(name: str, file: UploadFile = File(...)):
+    """Receive a voice sample, compute speaker embedding, store it."""
+    import tempfile, os
+    doctors = [d["name"] for d in db.get_doctors()]
+    if name not in doctors:
+        raise HTTPException(404, "Arzt nicht gefunden")
+
+    suffix = Path(file.filename).suffix if file.filename else ".webm"
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        tmp_path = tmp.name
+        while chunk := await file.read(1024 * 64):
+            tmp.write(chunk)
+
+    loop = asyncio.get_event_loop()
+    try:
+        embedding = await loop.run_in_executor(None, _compute_embedding, tmp_path)
+    finally:
+        os.unlink(tmp_path)
+
+    db.set_doctor_embedding(name, json.dumps(embedding))
+    return {"ok": True}
+
+
+def _compute_embedding(audio_path: str) -> list[float]:
+    import torch, torchaudio
+    from speechbrain.inference.speaker import EncoderClassifier
+
+    classifier = EncoderClassifier.from_hparams(
+        source="speechbrain/spkrec-ecapa-voxceleb",
+        run_opts={"device": "cpu"},
+        savedir=str(Path.home() / ".cache" / "speechbrain" / "spkrec-ecapa"),
+    )
+    waveform, sr = torchaudio.load(audio_path)
+    if waveform.shape[0] > 1:
+        waveform = waveform.mean(dim=0, keepdim=True)
+    if sr != 16000:
+        waveform = torchaudio.transforms.Resample(sr, 16000)(waveform)
+    with torch.no_grad():
+        emb = classifier.encode_batch(waveform)
+    return emb.squeeze().tolist()
 
 
 # --- Settings ---

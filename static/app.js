@@ -57,10 +57,24 @@ const settingsClose     = document.getElementById("settings-close");
 const vocabTags         = document.getElementById("vocab-tags");
 const vocabInput        = document.getElementById("vocab-input");
 const vocabAddBtn       = document.getElementById("vocab-add-btn");
-const doctorTags        = document.getElementById("doctor-tags");
+const doctorList        = document.getElementById("doctor-list");
 const doctorInput       = document.getElementById("doctor-input");
 const doctorAddBtn      = document.getElementById("doctor-add-btn");
 const diarizationToggle = document.getElementById("diarization-toggle");
+
+// Enroll modal
+const enrollOverlay     = document.getElementById("enroll-overlay");
+const enrollModal       = document.getElementById("enroll-modal");
+const enrollTitle       = document.getElementById("enroll-title");
+const enrollClose       = document.getElementById("enroll-close");
+const enrollRecordBtn   = document.getElementById("enroll-record-btn");
+const enrollRecordLabel = document.getElementById("enroll-record-label");
+const enrollStatus      = document.getElementById("enroll-status");
+
+let enrollDoctorName = null;
+let enrollRecorder = null;
+let enrollChunks = [];
+let enrollRecording = false;
 
 // --- Wake lock: keep screen/audio alive on Android ---
 async function acquireWakeLock() {
@@ -394,7 +408,7 @@ function openSettings() {
   settingsPanel.classList.add("open");
   settingsOverlay.classList.add("open");
   loadVocab();
-  loadDoctorTags();
+  loadDoctorList();
   loadDiarizationToggle();
 }
 function closeSettings() {
@@ -435,28 +449,48 @@ async function loadDoctors() {
   const doctors = await fetch("/doctors").then(r => r.json());
   const prev = doctorSelect.value;
   doctorSelect.innerHTML = '<option value="">— Arzt auswählen —</option>';
-  for (const name of doctors) {
+  for (const d of doctors) {
     const opt = document.createElement("option");
-    opt.value = name;
-    opt.textContent = name;
+    opt.value = d.name;
+    opt.textContent = d.name;
     doctorSelect.appendChild(opt);
   }
   if (prev) doctorSelect.value = prev;
+  return doctors;
 }
 
-async function loadDoctorTags() {
-  const doctors = await fetch("/doctors").then(r => r.json());
-  doctorTags.innerHTML = "";
-  for (const name of doctors) {
-    const tag = document.createElement("div");
-    tag.className = "vocab-tag";
-    tag.innerHTML = `<span>${escHtml(name)}</span><button title="Entfernen">&times;</button>`;
-    tag.querySelector("button").addEventListener("click", async () => {
-      await fetch(`/doctors/${encodeURIComponent(name)}`, { method: "DELETE" });
-      loadDoctorTags();
-      loadDoctors();
+async function loadDoctorList() {
+  const doctors = await loadDoctors();
+  doctorList.innerHTML = "";
+  for (const d of doctors) {
+    const row = document.createElement("div");
+    row.className = "doctor-row";
+
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "doctor-name";
+    nameSpan.textContent = d.name;
+
+    const voiceBtn = document.createElement("button");
+    voiceBtn.className = "btn btn-outline btn-sm" + (d.embedding ? " enrolled" : "");
+    voiceBtn.title = d.embedding ? "Stimme erneut aufnehmen" : "Stimme aufnehmen";
+    voiceBtn.innerHTML = d.embedding
+      ? "🎙 Stimme ✓"
+      : "🎙 Stimme aufnehmen";
+    voiceBtn.addEventListener("click", () => openEnrollModal(d.name));
+
+    const delBtn = document.createElement("button");
+    delBtn.className = "btn-icon-del";
+    delBtn.title = "Entfernen";
+    delBtn.textContent = "×";
+    delBtn.addEventListener("click", async () => {
+      await fetch(`/doctors/${encodeURIComponent(d.name)}`, { method: "DELETE" });
+      loadDoctorList();
     });
-    doctorTags.appendChild(tag);
+
+    row.appendChild(nameSpan);
+    row.appendChild(voiceBtn);
+    row.appendChild(delBtn);
+    doctorList.appendChild(row);
   }
 }
 
@@ -470,8 +504,92 @@ async function addDoctor() {
   fd.append("name", name);
   await fetch("/doctors", { method: "POST", body: fd });
   doctorInput.value = "";
-  loadDoctorTags();
-  loadDoctors();
+  loadDoctorList();
+}
+
+// --- Enrollment modal ---
+function openEnrollModal(doctorName) {
+  enrollDoctorName = doctorName;
+  enrollTitle.textContent = `Stimme aufnehmen – ${doctorName}`;
+  enrollRecordBtn.className = "";
+  enrollRecordLabel.textContent = "Klicken zum Aufnehmen";
+  enrollStatus.style.display = "none";
+  enrollStatus.className = "status-bar";
+  enrollStatus.textContent = "";
+  enrollModal.classList.add("open");
+  enrollOverlay.classList.add("open");
+}
+
+function closeEnrollModal() {
+  if (enrollRecording) stopEnrollRecording(false);
+  enrollModal.classList.remove("open");
+  enrollOverlay.classList.remove("open");
+}
+
+enrollClose.addEventListener("click", closeEnrollModal);
+enrollOverlay.addEventListener("click", closeEnrollModal);
+
+enrollRecordBtn.addEventListener("click", async () => {
+  if (enrollRecording) {
+    await stopEnrollRecording(true);
+  } else {
+    await startEnrollRecording();
+  }
+});
+
+async function startEnrollRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    enrollChunks = [];
+    enrollRecorder = new MediaRecorder(stream);
+    enrollRecorder.ondataavailable = e => { if (e.data.size > 0) enrollChunks.push(e.data); };
+    enrollRecorder.start(500);
+    enrollRecording = true;
+    enrollRecordBtn.classList.add("recording");
+    enrollRecordLabel.textContent = "Aufnahme läuft... Klicken zum Beenden";
+  } catch (err) {
+    setEnrollStatus("error", "Mikrofon-Zugriff verweigert: " + err.message);
+  }
+}
+
+async function stopEnrollRecording(upload) {
+  enrollRecorder.stop();
+  enrollRecorder.stream.getTracks().forEach(t => t.stop());
+  enrollRecording = false;
+  enrollRecordBtn.classList.remove("recording");
+  enrollRecordLabel.textContent = "Aufnahme beendet";
+
+  if (!upload) return;
+
+  await new Promise(r => setTimeout(r, 300));
+  const mimeType = enrollRecorder?.mimeType || "audio/webm";
+  const ext = mimeType.includes("mp4") ? ".mp4" : ".webm";
+  const blob = new Blob(enrollChunks, { type: mimeType });
+
+  setEnrollStatus("processing", "Stimmprofil wird erstellt...");
+
+  const fd = new FormData();
+  fd.append("file", blob, `enroll${ext}`);
+  const resp = await fetch(`/doctors/${encodeURIComponent(enrollDoctorName)}/enroll`, {
+    method: "POST", body: fd,
+  });
+
+  if (resp.ok) {
+    setEnrollStatus("ready", "Stimmprofil gespeichert ✓");
+    setTimeout(() => {
+      closeEnrollModal();
+      loadDoctorList();
+    }, 1200);
+  } else {
+    setEnrollStatus("error", "Fehler beim Speichern.");
+  }
+}
+
+function setEnrollStatus(type, msg) {
+  enrollStatus.style.display = "flex";
+  enrollStatus.className = "status-bar " + type;
+  const spin = type === "processing" ? '<div class="spinner"></div>' : "";
+  enrollStatus.innerHTML = spin + msg;
 }
 
 // --- Diarization toggle ---

@@ -36,8 +36,9 @@ def init_db():
             );
 
             CREATE TABLE IF NOT EXISTS doctors (
-                id    INTEGER PRIMARY KEY AUTOINCREMENT,
-                name  TEXT NOT NULL UNIQUE
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                name      TEXT NOT NULL UNIQUE,
+                embedding TEXT
             );
 
             CREATE TABLE IF NOT EXISTS settings (
@@ -46,12 +47,13 @@ def init_db():
             );
         """)
         # Migrate: add columns if upgrading from older schema
-        for col, typedef in [
-            ("doctor_name", "TEXT"),
-            ("diarized",    "TEXT"),
+        for table, col, typedef in [
+            ("sessions", "doctor_name", "TEXT"),
+            ("sessions", "diarized",    "TEXT"),
+            ("doctors",  "embedding",   "TEXT"),
         ]:
             try:
-                conn.execute(f"ALTER TABLE sessions ADD COLUMN {col} {typedef}")
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {typedef}")
             except Exception:
                 pass
 
@@ -127,10 +129,10 @@ def seed_vocab(terms: list[str]):
 
 # --- Doctors ---
 
-def get_doctors() -> list[str]:
+def get_doctors() -> list[dict]:
     with get_conn() as conn:
-        rows = conn.execute("SELECT name FROM doctors ORDER BY name").fetchall()
-    return [r["name"] for r in rows]
+        rows = conn.execute("SELECT name, embedding FROM doctors ORDER BY name").fetchall()
+    return [dict(r) for r in rows]
 
 
 def add_doctor(name: str):
@@ -141,6 +143,24 @@ def add_doctor(name: str):
 def remove_doctor(name: str):
     with get_conn() as conn:
         conn.execute("DELETE FROM doctors WHERE name = ?", (name.strip(),))
+
+
+def set_doctor_embedding(name: str, embedding_json: str):
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE doctors SET embedding = ? WHERE name = ?",
+            (embedding_json, name.strip()),
+        )
+
+
+def get_doctor_embedding(name: str) -> list[float] | None:
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT embedding FROM doctors WHERE name = ?", (name.strip(),)
+        ).fetchone()
+    if row and row["embedding"]:
+        return json.loads(row["embedding"])
+    return None
 
 
 # --- Settings ---

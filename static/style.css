@@ -330,6 +330,69 @@ header span.subtitle { font-size: 0.8rem; opacity: 0.7; margin-left: 12px; }
 }
 .diarized-text { color: var(--text); flex: 1; }
 
+/* Doctor list rows in settings */
+.doctor-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 0; border-bottom: 1px solid var(--border);
+}
+.doctor-row:last-child { border-bottom: none; }
+.doctor-name { flex: 1; font-size: 0.9rem; font-weight: 500; }
+.btn-sm { padding: 4px 10px; font-size: 0.75rem; }
+.btn-sm.enrolled { border-color: var(--green-accent); color: var(--green-accent); }
+.btn-icon-del {
+  background: none; border: none; cursor: pointer; color: var(--grey);
+  font-size: 1.1rem; line-height: 1; padding: 2px 4px;
+}
+.btn-icon-del:hover { color: var(--red); }
+
+/* Enroll modal */
+#enroll-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+  z-index: 200; display: none;
+}
+#enroll-overlay.open { display: block; }
+#enroll-modal {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -55%);
+  width: 420px; max-width: calc(100vw - 40px);
+  background: var(--bg); border-radius: 10px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.2);
+  z-index: 201; display: none; flex-direction: column;
+  opacity: 0; transition: opacity 0.2s, transform 0.2s;
+}
+#enroll-modal.open {
+  display: flex; opacity: 1; transform: translate(-50%, -50%);
+}
+.enroll-header {
+  background: var(--green-dark); color: #fff;
+  padding: 14px 20px; border-radius: 10px 10px 0 0;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.enroll-header h2 { font-size: 0.95rem; }
+#enroll-close {
+  background: none; border: none; color: #fff; font-size: 1.3rem;
+  cursor: pointer; opacity: 0.8; line-height: 1;
+}
+#enroll-close:hover { opacity: 1; }
+.enroll-body { padding: 20px; }
+.enroll-hint { font-size: 0.85rem; color: var(--grey); margin-bottom: 12px; }
+.enroll-prompt {
+  background: var(--green-light); border-left: 3px solid var(--green-accent);
+  padding: 10px 14px; border-radius: 0 6px 6px 0; margin: 0 0 18px;
+  font-size: 0.88rem; line-height: 1.6; color: var(--green-dark); font-style: italic;
+}
+#enroll-record-wrap {
+  display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 8px 0;
+}
+#enroll-record-btn {
+  width: 60px; height: 60px; border-radius: 50%; border: none;
+  background: var(--grey); cursor: pointer; transition: 0.2s;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: var(--shadow);
+}
+#enroll-record-btn.recording { background: var(--red); animation: pulse 1.2s infinite; }
+#enroll-record-btn svg { width: 26px; height: 26px; fill: #fff; }
+#enroll-record-label { font-size: 0.8rem; color: var(--grey); text-align: center; }
+
 /* History doctor label */
 .h-doctor {
   font-size: 0.75rem; color: var(--green-accent);

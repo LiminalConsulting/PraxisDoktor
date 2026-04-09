@@ -22,6 +22,7 @@ def diarize(
     transcript: str,
     patient_ref: str = "",
     doctor_name: str = "",
+    doctor_embedding: list[float] | None = None,
 ) -> str:
     """
     Run speaker diarization on audio_path.
@@ -29,9 +30,8 @@ def diarize(
     Falls back to plain transcript if diarization fails.
     """
     try:
-        return _diarize_impl(audio_path, transcript, patient_ref, doctor_name)
-    except Exception as e:
-        # Non-fatal: return plain transcript with a note
+        return _diarize_impl(audio_path, transcript, patient_ref, doctor_name, doctor_embedding)
+    except Exception:
         return transcript
 
 
@@ -40,6 +40,7 @@ def _diarize_impl(
     transcript: str,
     patient_ref: str,
     doctor_name: str,
+    doctor_embedding: list[float] | None = None,
 ) -> str:
     import torch
     import torchaudio
@@ -125,14 +126,27 @@ def _diarize_impl(
                     right = frame_votes[rr]; break
             frame_votes[f] = left if left != -1 else (right if right != -1 else 0)
 
-    # Assign cluster 0 to doctor (speaks first / more) heuristic
-    # Count which cluster dominates the first 25% of audio
-    cutoff = n_frames // 4
-    first_quarter = frame_votes[:cutoff]
-    count0 = np.sum(first_quarter == 0)
-    count1 = np.sum(first_quarter == 1)
-    # Cluster that appears more in first quarter = doctor
-    doctor_cluster = 0 if count0 >= count1 else 1
+    # Assign doctor cluster using stored voice embedding (cosine similarity)
+    # or fall back to first-quarter heuristic if no embedding available
+    if doctor_embedding is not None:
+        ref = np.array(doctor_embedding)
+        ref = ref / (np.linalg.norm(ref) + 1e-9)
+        # Centroid of each cluster
+        c0 = kmeans.cluster_centers_[0]
+        c1 = kmeans.cluster_centers_[1]
+        c0 = c0 / (np.linalg.norm(c0) + 1e-9)
+        c1 = c1 / (np.linalg.norm(c1) + 1e-9)
+        sim0 = float(np.dot(ref, c0))
+        sim1 = float(np.dot(ref, c1))
+        doctor_cluster = 0 if sim0 >= sim1 else 1
+    else:
+        # Fallback: cluster dominating first 25% = doctor
+        cutoff = n_frames // 4
+        first_quarter = frame_votes[:cutoff]
+        count0 = int(np.sum(first_quarter == 0))
+        count1 = int(np.sum(first_quarter == 1))
+        doctor_cluster = 0 if count0 >= count1 else 1
+
     patient_cluster = 1 - doctor_cluster
 
     def cluster_to_label(c: int) -> str:

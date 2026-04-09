@@ -120,8 +120,8 @@
   <div class="settings-body">
 
     <h3>Ärzte</h3>
-    <div class="vocab-tags" id="doctor-tags"></div>
-    <div class="vocab-add">
+    <div id="doctor-list"></div>
+    <div class="vocab-add" style="margin-top:10px">
       <input type="text" id="doctor-input" placeholder="Name des Arztes...">
       <button class="btn btn-primary" id="doctor-add-btn">Hinzufügen</button>
     </div>
@@ -145,6 +145,29 @@
       <button class="btn btn-primary" id="vocab-add-btn">Hinzufügen</button>
     </div>
 
+  </div>
+</div>
+
+<!-- ENROLL MODAL -->
+<div id="enroll-overlay"></div>
+<div id="enroll-modal">
+  <div class="enroll-header">
+    <h2 id="enroll-title">Stimme aufnehmen</h2>
+    <button id="enroll-close">&times;</button>
+  </div>
+  <div class="enroll-body">
+    <p class="enroll-hint">Lesen Sie bitte ca. 10–15 Sekunden laut vor:</p>
+    <blockquote class="enroll-prompt">
+      „Guten Tag, ich bin Ihr Arzt. Bitte schildern Sie mir Ihre Beschwerden.
+      Seit wann bestehen diese Symptome? Haben Sie bereits andere Ärzte aufgesucht?"
+    </blockquote>
+    <div id="enroll-record-wrap">
+      <button id="enroll-record-btn">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>
+      </button>
+      <span id="enroll-record-label">Klicken zum Aufnehmen</span>
+    </div>
+    <div class="status-bar" id="enroll-status" style="margin-top:12px;display:none"></div>
   </div>
 </div>
 
