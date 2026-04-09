@@ -1,28 +1,121 @@
 PraxisDoktor — Installationsanleitung
 ======================================
 
-Schritt 1: Ollama installieren
-  - OllamaSetup.exe ausfuehren und den Anweisungen folgen.
+DOWNLOAD
+--------
+Die neueste Version herunterladen unter:
+  https://github.com/LiminalConsulting/PraxisDoktor/releases/latest
 
-Schritt 2: KI-Sprachmodell herunterladen
-  - Eingabeaufforderung (cmd) oeffnen und eingeben:
-      ollama pull llama3.1:8b
-  - Dieser Schritt dauert einige Minuten (ca. 4,7 GB Download).
-  - Einmalig notwendig.
+Dort die Datei  PraxisDoktor-vX.X.X.zip  herunterladen und entpacken.
+Im entpackten Ordner befinden sich:
+  - PraxisDoktorSetup.exe   <- Dieser startet alles automatisch (empfohlen)
+  - PraxisDoktor.exe        <- Die eigentliche Anwendung
+  - OllamaSetup.exe         <- KI-Laufzeitumgebung (wird vom Setup benoetigt)
+  - ANLEITUNG.txt           <- Diese Datei
 
-Schritt 3: PraxisDoktor starten
-  - PraxisDoktor.exe per Doppelklick starten.
-  - Ein schwarzes Fenster erscheint — das ist normal, bitte offen lassen.
 
-Schritt 4: Browser oeffnen
-  - Auf diesem Computer:    http://localhost:8080
-  - Von anderen Computern:  http://[IP-Adresse-des-Servers]:8080
-    (IP-Adresse z.B. 192.168.1.x — beim IT-Verantwortlichen erfragen)
+INSTALLATION (EINFACH — empfohlen)
+------------------------------------
+1. PraxisDoktorSetup.exe per Doppelklick starten.
+   -> Falls Windows eine Warnung zeigt ("Unbekannter Herausgeber"):
+      auf "Weitere Informationen" klicken, dann "Trotzdem ausfuehren".
 
-Hinweise:
-  - Das schwarze Fenster (Server) muss waehrend der Nutzung geoeffnet bleiben.
-  - Alle Sitzungsdaten werden lokal in praxisdoktor.db gespeichert.
-  - Audiodateien werden im Ordner "audio" neben der .exe abgelegt.
-  - Keine Daten verlassen das lokale Netzwerk.
+2. Das Setup-Fenster erscheint und erledigt alles automatisch:
+   Schritt 1: Ollama pruefen / installieren
+              -> Falls Ollama fehlt: OllamaSetup.exe wird gestartet.
+                 Den Ollama-Installer normal abschliessen, dann geht das Setup weiter.
+   Schritt 2: KI-Modell herunterladen (ca. 4,7 GB — dauert je nach Internet 5-20 Min.)
+   Schritt 3: PraxisDoktor starten und Browser oeffnen
+
+3. Nach Abschluss: Browser oeffnet sich automatisch mit http://localhost:8080
+
+
+INSTALLATION (MANUELL — falls Setup.exe nicht funktioniert)
+------------------------------------------------------------
+1. OllamaSetup.exe ausfuehren und den Anweisungen folgen.
+
+2. Eingabeaufforderung (cmd) oeffnen:
+   Windows-Taste + R, "cmd" eintippen, Enter druecken.
+   Dann eingeben:
+     ollama pull llama3.1:8b
+   Enter druecken und warten (ca. 4,7 GB Download, einmalig).
+
+3. PraxisDoktor.exe per Doppelklick starten.
+   Ein schwarzes Fenster erscheint — das ist normal, bitte offen lassen.
+
+4. Browser oeffnen und eingeben:
+     http://localhost:8080
+
+
+NUTZUNG AUF DEM HANDY / TABLET (gleiches WLAN)
+------------------------------------------------
+Waehrend PraxisDoktor.exe laeuft, kann jedes Geraet im selben WLAN die App nutzen.
+
+1. IP-Adresse des Computers herausfinden:
+   Eingabeaufforderung (cmd) oeffnen, eingeben:  ipconfig
+   Unter "IPv4-Adresse" steht z.B. 192.168.1.42
+
+2. Auf dem Handy/Tablet im Browser eingeben:
+     http://192.168.1.42:8080
+   (Zahl entsprechend anpassen)
+
+Hinweis fuer Android: Die Aufnahme laeuft auch weiter wenn der Bildschirm sperrt,
+solange der Browser-Tab geoeffnet bleibt.
+
+
+ERSTEINRICHTUNG IN DER APP
+---------------------------
+1. Einstellungen oeffnen (Zahnrad-Symbol oben rechts).
+2. Unter "Aerzte": Namen der Aerzte hinzufuegen (z.B. "Dr. Rug").
+3. Optional aber empfohlen: Auf "Stimme aufnehmen" klicken und den angezeigten
+   Text vorlesen (~15 Sek.). Das verbessert die automatische Sprechererkennung
+   erheblich — einmalig pro Arzt notwendig.
+4. Unter "Sprechererkennung": kann aktiviert oder deaktiviert werden.
+5. Einstellungen schliessen.
+
+
+GESPRAECH AUFNEHMEN
+-------------------
+1. Arzt aus der Auswahlliste waehlen.
+2. Patientennamen eingeben (z.B. "Mueller, Hans").
+3. "Neue Sitzung starten" klicken.
+4. Roten Knopf klicken -> Aufnahme beginnt.
+5. Gespraech fuehren.
+6. "Sitzung beenden & Auswertung starten" klicken.
+7. Warten: Transkription laeuft (ca. 1-2 Min.), dann erscheinen die Patientendaten.
+8. Felder einzeln kopieren oder direkt in MediOffice uebertragen.
+
+
+HINWEISE
+--------
+- Das schwarze Fenster (Server) muss waehrend der Nutzung geoeffnet bleiben.
+- Alle Daten bleiben lokal auf dem Computer — nichts wird ins Internet gesendet.
+- Sitzungsdaten werden in  praxisdoktor.db  neben der .exe gespeichert.
+- Audiodateien im Ordner  audio\  neben der .exe.
+- Sprachmodell (Ollama): laeuft separat im Hintergrund auf Port 11434.
+
+
+FERNTEST / VIDEOGESPRAECH
+--------------------------
+Zum Testen ueber Videotelefonie (z.B. mit einer anderen Person remote):
+
+Option A — Getrennte Geraete, echter Ton:
+  Person 1 (Arzt): sitzt am Computer mit PraxisDoktor, spricht normal.
+  Person 2 (Patient): telefoniert per Handy / Festnetz mit Person 1.
+  -> PraxisDoktor nimmt das Mikrofon des Computers auf, hoert beide Stimmen.
+  -> Empfohlen: Lautsprecher am Computer an, damit Patientenstimme aufgenommen wird.
+
+Option B — Beide per Videogespraech (Teams/Zoom/FaceTime):
+  Funktioniert, aber Qualitaet haengt von der Audioverbindung ab.
+  -> Videogespraech auf dem Computer starten.
+  -> PraxisDoktor in einem anderen Browser-Tab oeffnen.
+  -> Aufnahme starten: Mikrofon nimmt lokalen Ton + Lautsprecherausgabe auf
+     (unter Windows: Audiogeraet "Stereo Mix" oder "Was du hoerst" auswaehlen,
+      falls verfuegbar — sonst normales Mikrofon genuegt fuer einen ersten Test).
+
+Option C — Einfachster Test:
+  Zwei Personen im gleichen Raum: eine Person spielt Arzt, eine den Patienten.
+  Kein Netzwerk noetig.
+
 
 Bei Problemen: david@realdeal.de
