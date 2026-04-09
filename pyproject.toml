@@ -11,6 +11,9 @@ dependencies = [
     "httpx",
     "aiofiles",
     "python-multipart",
+    "speechbrain",
+    "scikit-learn",
+    "torchaudio",
 ]
 
 [build-system]
