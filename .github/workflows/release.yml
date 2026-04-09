@@ -23,12 +23,20 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
-      - name: Build EXE with PyInstaller
+      - name: Install PyInstaller
+        run: uv run pip install pyinstaller
+
+      - name: Build PraxisDoktor.exe
         run: |
-          uv run pyinstaller --onefile --name PraxisDoktor `
+          uv run pyinstaller --onefile --name PraxisDoktor --noconsole `
             --add-data "static;static" `
             --add-data "vocab_default.json;." `
             main.py
+
+      - name: Build PraxisDoktorSetup.exe (installer GUI)
+        run: |
+          uv run pyinstaller --onefile --name PraxisDoktorSetup --noconsole `
+            installer_gui.py
 
       - name: Download Ollama installer
         run: |
@@ -42,7 +50,10 @@ jobs:
       - name: Create release ZIP
         run: |
           $tag = "${{ github.ref_name }}"
-          Compress-Archive -Path dist\PraxisDoktor.exe, dist\OllamaSetup.exe, dist\ANLEITUNG.txt `
+          # Copy app exe next to setup exe so setup can find it
+          copy dist\PraxisDoktor.exe dist\PraxisDoktorSetup_folder\PraxisDoktor.exe 2>$null; `
+          Compress-Archive `
+            -Path dist\PraxisDoktorSetup.exe, dist\PraxisDoktor.exe, dist\OllamaSetup.exe, dist\ANLEITUNG.txt `
             -DestinationPath "PraxisDoktor-$tag.zip"
         shell: powershell
 
