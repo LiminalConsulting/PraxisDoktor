@@ -50,8 +50,6 @@ jobs:
       - name: Create release ZIP
         run: |
           $tag = "${{ github.ref_name }}"
-          # Copy app exe next to setup exe so setup can find it
-          copy dist\PraxisDoktor.exe dist\PraxisDoktorSetup_folder\PraxisDoktor.exe 2>$null; `
           Compress-Archive `
             -Path dist\PraxisDoktorSetup.exe, dist\PraxisDoktor.exe, dist\OllamaSetup.exe, dist\ANLEITUNG.txt `
             -DestinationPath "PraxisDoktor-$tag.zip"
