@@ -298,7 +298,11 @@ async def enroll_doctor(name: str, file: UploadFile = File(...)):
 
 
 def _compute_embedding(audio_path: str) -> list[float]:
-    import torch, torchaudio
+    import torch
+    import numpy as np
+    import soundfile as sf
+    from scipy.signal import resample_poly
+    from math import gcd
     from speechbrain.inference.speaker import EncoderClassifier
 
     classifier = EncoderClassifier.from_hparams(
@@ -306,14 +310,37 @@ def _compute_embedding(audio_path: str) -> list[float]:
         run_opts={"device": "cpu"},
         savedir=str(Path.home() / ".cache" / "speechbrain" / "spkrec-ecapa"),
     )
-    waveform, sr = torchaudio.load(audio_path)
-    if waveform.shape[0] > 1:
-        waveform = waveform.mean(dim=0, keepdim=True)
+    audio, sr = _load_audio_numpy(audio_path)
     if sr != 16000:
-        waveform = torchaudio.transforms.Resample(sr, 16000)(waveform)
+        g = gcd(sr, 16000)
+        audio = resample_poly(audio, 16000 // g, sr // g).astype(np.float32)
+    waveform = torch.tensor(audio).unsqueeze(0)
     with torch.no_grad():
         emb = classifier.encode_batch(waveform)
     return emb.squeeze().tolist()
+
+
+def _load_audio_numpy(audio_path: str):
+    """Load audio file to mono float32 numpy array. Handles webm/mp4 via ffmpeg fallback."""
+    import numpy as np
+    try:
+        import soundfile as sf
+        data, sr = sf.read(audio_path, dtype="float32", always_2d=True)
+        return data.mean(axis=1), sr
+    except Exception:
+        # Fallback: use av (already installed as faster-whisper dep)
+        import av
+        container = av.open(audio_path)
+        stream = container.streams.audio[0]
+        sr = stream.rate
+        frames = []
+        for frame in container.decode(stream):
+            arr = frame.to_ndarray()
+            if arr.ndim > 1:
+                arr = arr.mean(axis=0)
+            frames.append(arr.astype(np.float32))
+        container.close()
+        return np.concatenate(frames), sr
 
 
 # --- Settings ---

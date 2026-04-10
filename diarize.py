@@ -43,7 +43,7 @@ def _diarize_impl(
     doctor_embedding: list[float] | None = None,
 ) -> str:
     import torch
-    import torchaudio
+    from math import gcd
     from sklearn.cluster import KMeans
     from speechbrain.inference.speaker import EncoderClassifier
 
@@ -51,17 +51,19 @@ def _diarize_impl(
     label_doctor = doctor_name.split(",")[0].strip() if doctor_name else "Arzt"
     label_patient = patient_ref.split(",")[0].strip() if patient_ref else "Patient"
 
-    # Load audio
-    waveform, sr = torchaudio.load(audio_path)
-    # Convert to mono
-    if waveform.shape[0] > 1:
-        waveform = waveform.mean(dim=0, keepdim=True)
-    # Resample to 16kHz (SpeechBrain expects 16kHz)
+    # Load audio via soundfile/av (avoids torchaudio.load on Python 3.14)
+    from main import _load_audio_numpy
+    audio_np, sr = _load_audio_numpy(audio_path)
+
+    # Resample to 16kHz
     if sr != 16000:
-        resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq=16000)
-        waveform = resampler(waveform)
+        from scipy.signal import resample_poly
+        g = gcd(sr, 16000)
+        audio_np = resample_poly(audio_np, 16000 // g, sr // g).astype(np.float32)
         sr = 16000
 
+    import torch
+    waveform = torch.tensor(audio_np).unsqueeze(0)  # (1, samples)
     total_samples = waveform.shape[1]
     total_duration = total_samples / sr
 
@@ -87,10 +89,11 @@ def _diarize_impl(
 
     for start in range(0, total_samples - window_samples + 1, hop_samples):
         end = start + window_samples
-        chunk = waveform[:, start:end]
+        chunk = waveform[:, start:end]  # shape: (1, window_samples)
         with torch.no_grad():
             emb = classifier.encode_batch(chunk)
-        embeddings.append(emb.squeeze().numpy())
+        emb_np = emb.squeeze().detach().numpy()
+        embeddings.append(emb_np)
         window_times.append((start / sr, end / sr))
 
     if len(embeddings) < 2:
