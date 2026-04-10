@@ -2,9 +2,10 @@
 PraxisDoktor Setup-Assistent
 =============================
 Doppelklicken zum Starten. Dieses Programm:
-1. Prüft ob Ollama installiert ist – lädt es herunter falls nötig
-2. Zieht das KI-Modell (llama3.1:8b, ~4.7 GB) herunter
-3. Startet PraxisDoktor automatisch im Browser
+1. Installiert uv (Python-Paketmanager, ~10 MB)
+2. Prüft ob Ollama installiert ist – lädt es herunter falls nötig
+3. Zieht das KI-Modell (llama3.1:8b, ~4.7 GB) herunter
+4. Startet PraxisDoktor automatisch im Browser
 
 Kompilierung: pyinstaller --onefile --name PraxisDoktorSetup --noconsole installer_gui.py
 """
@@ -15,15 +16,15 @@ import subprocess
 import sys
 import threading
 import tkinter as tk
-from tkinter import messagebox
+from pathlib import Path
 import urllib.request
 import webbrowser
-from pathlib import Path
 
 BASE_DIR = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).parent
-APP_EXE = BASE_DIR / "PraxisDoktor.exe"
+APP_DIR = BASE_DIR / "app"
 OLLAMA_INSTALLER = BASE_DIR / "OllamaSetup.exe"
 OLLAMA_URL = "https://ollama.com/download/OllamaSetup.exe"
+UV_INSTALLER_URL = "https://github.com/astral-sh/uv/releases/latest/download/uv-installer.ps1"
 
 # Colors
 GREEN_DARK = "#3c5a46"
@@ -40,8 +41,7 @@ class SetupApp:
         self.root.resizable(False, False)
         self.root.configure(bg=WHITE)
 
-        # Window size and center
-        w, h = 520, 420
+        w, h = 520, 460
         sw = root.winfo_screenwidth()
         sh = root.winfo_screenheight()
         root.geometry(f"{w}x{h}+{(sw-w)//2}+{(sh-h)//2}")
@@ -63,15 +63,14 @@ class SetupApp:
             fg=WHITE, bg=GREEN_DARK, font=("Segoe UI", 9),
         ).place(relx=0.5, rely=0.75, anchor="center")
 
-        # Body
         body = tk.Frame(self.root, bg=WHITE, padx=30, pady=20)
         body.pack(fill="both", expand=True)
 
-        # Steps frame
         self.steps_frame = tk.Frame(body, bg=WHITE)
         self.steps_frame.pack(fill="x", pady=(0, 16))
 
         steps = [
+            ("step_uv",      "Python-Laufzeit installieren (uv)"),
             ("step_ollama",  "Ollama prüfen / installieren"),
             ("step_model",   "KI-Modell herunterladen  (~4.7 GB)"),
             ("step_app",     "PraxisDoktor starten"),
@@ -87,7 +86,6 @@ class SetupApp:
             lbl.pack(side="left", fill="x", expand=True)
             self.step_labels[key] = (icon, lbl)
 
-        # Log box
         log_frame = tk.Frame(body, bg=WHITE)
         log_frame.pack(fill="both", expand=True)
         self.log = tk.Text(
@@ -100,7 +98,6 @@ class SetupApp:
         sb.pack(side="right", fill="y")
         self.log.pack(fill="both", expand=True)
 
-        # Bottom button
         self.btn = tk.Button(
             body, text="Starte Setup...", state="disabled",
             bg=GREEN_DARK, fg=WHITE, font=("Segoe UI", 10, "bold"),
@@ -116,13 +113,12 @@ class SetupApp:
         self.root.update_idletasks()
 
     def _set_step(self, key: str, state: str):
-        # state: pending | active | done | error
         icon_lbl, text_lbl = self.step_labels[key]
         styles = {
-            "pending": ("○", GREY,       GREY),
+            "pending": ("○", GREY,      GREY),
             "active":  ("●", GREEN_DARK, GREEN_DARK),
-            "done":    ("✓", "#2e7d32",  "#2e7d32"),
-            "error":   ("✗", RED,        RED),
+            "done":    ("✓", "#2e7d32", "#2e7d32"),
+            "error":   ("✗", RED,       RED),
         }
         icon_char, icon_color, text_color = styles.get(state, styles["pending"])
         icon_lbl.configure(text=icon_char, fg=icon_color)
@@ -134,6 +130,8 @@ class SetupApp:
 
     def _run_setup(self):
         try:
+            self._setup_uv()
+            self._setup_app_deps()
             self._setup_ollama()
             self._setup_model()
             self._launch_app()
@@ -141,7 +139,86 @@ class SetupApp:
             self._log(f"\nFehler: {e}")
             self._set_failure()
 
-    # ---- Step 1: Ollama ----
+    # ---- Step 1: uv ----
+    def _setup_uv(self):
+        self._set_step("step_uv", "active")
+        self._log("Prüfe uv (Python-Laufzeit)...")
+
+        if self._uv_installed():
+            self._log("  uv ist bereits installiert.")
+            self._set_step("step_uv", "done")
+            return
+
+        self._log("  Installiere uv...")
+        try:
+            # uv's official Windows installer via PowerShell
+            result = subprocess.run(
+                [
+                    "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass",
+                    "-Command",
+                    "irm https://astral.sh/uv/install.ps1 | iex",
+                ],
+                capture_output=True, text=True, timeout=120,
+            )
+            if result.returncode != 0:
+                raise RuntimeError(result.stderr or "uv-Installation fehlgeschlagen")
+        except subprocess.TimeoutExpired:
+            raise RuntimeError("uv-Download hat zu lange gedauert. Bitte Internetverbindung prüfen.")
+
+        if not self._uv_installed():
+            raise RuntimeError("uv konnte nicht installiert werden.")
+
+        self._log("  uv erfolgreich installiert.")
+        self._set_step("step_uv", "done")
+
+    def _uv_installed(self) -> bool:
+        try:
+            r = subprocess.run(["uv", "--version"], capture_output=True, timeout=10)
+            return r.returncode == 0
+        except Exception:
+            # Also check common install location
+            uv_path = Path(os.environ.get("USERPROFILE", "")) / ".local" / "bin" / "uv.exe"
+            if uv_path.exists():
+                # Add to PATH for this process
+                os.environ["PATH"] = str(uv_path.parent) + os.pathsep + os.environ.get("PATH", "")
+                return True
+            return False
+
+    def _uv_cmd(self) -> str:
+        """Return 'uv' or full path to uv.exe."""
+        try:
+            subprocess.run(["uv", "--version"], capture_output=True, timeout=5, check=True)
+            return "uv"
+        except Exception:
+            uv_path = Path(os.environ.get("USERPROFILE", "")) / ".local" / "bin" / "uv.exe"
+            if uv_path.exists():
+                return str(uv_path)
+            # After fresh install uv may be in LOCALAPPDATA
+            local = Path(os.environ.get("LOCALAPPDATA", "")) / "uv" / "bin" / "uv.exe"
+            if local.exists():
+                return str(local)
+            return "uv"
+
+    # ---- Step 1b: sync app deps ----
+    def _setup_app_deps(self):
+        if not APP_DIR.exists():
+            raise RuntimeError(
+                f"App-Verzeichnis nicht gefunden: {APP_DIR}\n"
+                "Bitte stellen Sie sicher, dass PraxisDoktorSetup.exe "
+                "im selben Ordner wie der 'app'-Ordner liegt."
+            )
+        self._log("Installiere App-Abhängigkeiten (einmalig, ~2 Min.)...")
+        uv = self._uv_cmd()
+        result = subprocess.run(
+            [uv, "sync"],
+            cwd=str(APP_DIR),
+            capture_output=True, text=True, timeout=600,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"uv sync fehlgeschlagen:\n{result.stderr}")
+        self._log("  Abhängigkeiten installiert.")
+
+    # ---- Step 2: Ollama ----
     def _setup_ollama(self):
         self._set_step("step_ollama", "active")
         self._log("Prüfe Ollama...")
@@ -153,7 +230,6 @@ class SetupApp:
 
         self._log("  Ollama nicht gefunden.")
 
-        # Try to run bundled installer first
         if OLLAMA_INSTALLER.exists():
             self._log("  Starte OllamaSetup.exe ...")
         else:
@@ -165,7 +241,6 @@ class SetupApp:
         if result.returncode != 0:
             raise RuntimeError("Ollama-Installation fehlgeschlagen oder abgebrochen.")
 
-        # Verify
         if not self._ollama_installed():
             raise RuntimeError("Ollama nicht gefunden nach Installation. Bitte manuell installieren.")
 
@@ -174,10 +249,7 @@ class SetupApp:
 
     def _ollama_installed(self) -> bool:
         try:
-            r = subprocess.run(
-                ["ollama", "--version"],
-                capture_output=True, timeout=10,
-            )
+            r = subprocess.run(["ollama", "--version"], capture_output=True, timeout=10)
             return r.returncode == 0
         except Exception:
             return False
@@ -189,14 +261,13 @@ class SetupApp:
                 pct = min(100, int(downloaded * 100 / total_size))
                 mb = downloaded / 1024 / 1024
                 total_mb = total_size / 1024 / 1024
-                self.root.after(0, lambda: self.btn.configure(
-                    text=f"Herunterladen... {pct}%  ({mb:.0f} / {total_mb:.0f} MB)"
+                self.root.after(0, lambda p=pct, m=mb, t=total_mb: self.btn.configure(
+                    text=f"Herunterladen... {p}%  ({m:.0f} / {t:.0f} MB)"
                 ))
-
         urllib.request.urlretrieve(url, dest, reporthook=progress)
         self.root.after(0, lambda: self.btn.configure(text="Starte Setup...", state="disabled"))
 
-    # ---- Step 2: Model ----
+    # ---- Step 3: Model ----
     def _setup_model(self):
         self._set_step("step_model", "active")
         self._log("Prüfe Modell llama3.1:8b ...")
@@ -211,11 +282,8 @@ class SetupApp:
 
         process = subprocess.Popen(
             ["ollama", "pull", "llama3.1:8b"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, encoding="utf-8", errors="replace",
         )
         for line in process.stdout:
             line = line.strip()
@@ -231,23 +299,21 @@ class SetupApp:
 
     def _model_available(self) -> bool:
         try:
-            r = subprocess.run(
-                ["ollama", "list"],
-                capture_output=True, text=True, timeout=15,
-            )
+            r = subprocess.run(["ollama", "list"], capture_output=True, text=True, timeout=15)
             return "llama3.1:8b" in r.stdout
         except Exception:
             return False
 
-    # ---- Step 3: Launch app ----
+    # ---- Step 4: Launch app ----
     def _launch_app(self):
         self._set_step("step_app", "active")
-
-        if not APP_EXE.exists():
-            raise RuntimeError(f"PraxisDoktor.exe nicht gefunden: {APP_EXE}")
-
         self._log("Starte PraxisDoktor...")
-        subprocess.Popen([str(APP_EXE)])
+
+        uv = self._uv_cmd()
+        subprocess.Popen(
+            [uv, "run", "python", "main.py"],
+            cwd=str(APP_DIR),
+        )
 
         import time
         time.sleep(3)
@@ -277,7 +343,7 @@ class SetupApp:
 
 def main():
     root = tk.Tk()
-    app = SetupApp(root)
+    SetupApp(root)
     root.mainloop()
 
 
