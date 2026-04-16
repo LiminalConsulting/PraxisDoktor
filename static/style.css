@@ -151,6 +151,18 @@ header span.subtitle { font-size: 0.8rem; opacity: 0.7; margin-left: 12px; }
 }
 .drop-zone input { display: none; }
 
+/* Divider "oder" */
+.divider-or {
+  display: flex; align-items: center; gap: 12px;
+  margin: 14px 0 6px; color: var(--grey); font-size: 0.78rem;
+}
+.divider-or::before, .divider-or::after {
+  content: ""; flex: 1; height: 1px; background: var(--border);
+}
+
+/* Audio drop zone */
+.drop-zone-audio { margin-top: 6px; }
+
 /* OCR block */
 .ocr-block { margin-top: 14px; }
 .ocr-toggle {

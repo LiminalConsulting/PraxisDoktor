@@ -179,6 +179,33 @@ stopBtn.addEventListener("click", async () => {
   await fetch(`/sessions/${currentSession.id}/audio`, { method: "POST", body: fd });
 });
 
+// --- Audio file upload ---
+const audioDropZone = document.getElementById("audio-drop-zone");
+const audioFile     = document.getElementById("audio-file");
+
+audioDropZone.addEventListener("click", () => audioFile.click());
+audioDropZone.addEventListener("dragover", e => { e.preventDefault(); audioDropZone.classList.add("drag-over"); });
+audioDropZone.addEventListener("dragleave", () => audioDropZone.classList.remove("drag-over"));
+audioDropZone.addEventListener("drop", e => {
+  e.preventDefault(); audioDropZone.classList.remove("drag-over");
+  const file = e.dataTransfer.files[0];
+  if (file) uploadAudioFile(file);
+});
+audioFile.addEventListener("change", () => {
+  if (audioFile.files[0]) uploadAudioFile(audioFile.files[0]);
+});
+
+async function uploadAudioFile(file) {
+  if (!currentSession) return;
+  recordBtn.disabled = true;
+  stopBtn.disabled = true;
+  audioDropZone.style.display = "none";
+  setStatus("processing", "Audiodatei wird verarbeitet...");
+  const fd = new FormData();
+  fd.append("file", file, file.name);
+  await fetch(`/sessions/${currentSession.id}/audio`, { method: "POST", body: fd });
+}
+
 // --- OCR drop zone ---
 dropZone.addEventListener("click", () => formFile.click());
 dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("drag-over"); });

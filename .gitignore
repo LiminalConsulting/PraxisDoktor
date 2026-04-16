@@ -10,3 +10,4 @@ praxisdoktor.db
 audio/
 *.egg-info/
 .DS_Store
+logs/
