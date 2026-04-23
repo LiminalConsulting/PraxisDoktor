@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 .env
 audio/
+var/
 *.db
 *.db-journal
 .uv/
