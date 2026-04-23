@@ -5,6 +5,9 @@ __pycache__/
 venv/
 dist/
 build/
+web_build/
+installer/build/
+installer/output/
 *.spec
 praxisdoktor.db
 audio/
