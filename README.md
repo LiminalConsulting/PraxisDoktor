@@ -1,61 +1,72 @@
-# PraxisDoktor — Patientenaufnahme-Assistent
+# PraxisDoktor
 
-Automatisierte Patientenaufnahme für die urologische Praxis Dr. Rug.
+Digitale Zentrale für die urologische Praxis Dr. Rug & Dr. Bruckschen.
 
-Nimmt das Erstgespräch auf, transkribiert es mit Whisper (lokal, Deutsch), liest den Anamnesebogen per OCR ein und extrahiert mit einem lokalen LLM (Ollama) die Patientenstammdaten — bereit zum Einfügen in MediOffice.
+Eine identitäts-bewusste Anwendung, die jeden Praxisprozess unter einer einheitlichen Grammatik abbildet: Anmeldung → personalisiertes Dashboard → Werkzeug pro Prozess → angeheftete Chats — alles lokal in der Praxis, kein Cloud-Zugriff auf Patientendaten.
 
-## Features
-
-- **Aufnahme im Browser** — kein extra Mikrofon-Setup
-- **Whisper (faster-whisper)** — Deutsch, urologisches Vokabular, läuft auf CPU
-- **OCR** — Anamnesebogen per Drag & Drop einlesen (easyocr, kein Tesseract nötig)
-- **Lokales LLM** — Ollama extrahiert strukturierte Felder, kein Cloud-Zugriff
-- **Kopierschaltflächen** — ein Klick je Feld, dann in MediOffice einfügen
-- **Sitzungsverlauf** — SQLite, alle Maschinen im LAN sehen dieselben Daten
-- **Vokabular-Editor** — Begriffe im Browser hinzufügen/entfernen
-
-## Schnellstart (Entwicklung)
-
-```bash
-# Abhängigkeiten installieren (uv erforderlich)
-uv sync
-
-# Ollama-Modell laden (einmalig)
-ollama pull llama3.1:8b
-
-# Server starten
-uv run python main.py
-# → http://localhost:8080
-```
-
-## Produktion (Windows)
-
-Siehe `ANLEITUNG.txt` im Release-ZIP.
-
-Release erstellen:
-```bash
-git tag v1.0.0
-git push origin v1.0.0
-```
-GitHub Actions baut automatisch `PraxisDoktor-v1.0.0.zip` mit EXE + Ollama-Installer.
+Das **Patientenaufnahme**-Werkzeug ist die erste lebendige Implementierung; alle anderen Prozesse (Rechnungsprüfung, Termin-Übersicht, Materialverwaltung, etc.) existieren als Platzhalter und werden iterativ ausgebaut.
 
 ## Architektur
 
+Zwei Verzeichnisse, eine Anwendung:
+
 ```
-main.py          FastAPI — API-Endpunkte, Hintergrundaufgaben, SSE
-transcribe.py    faster-whisper (medium, CPU, int8)
-ocr.py           easyocr (Deutsch, CPU)
-llm.py           Ollama-Client, Extraktions-Prompt
-db.py            SQLite — Sitzungen + Vokabular
-vocab.py         Vokabular-Verwaltung
-static/          HTML/CSS/JS Frontend
+docs/        Konzeptuelle Grundlage — Ontologie, Rollen, Stack, Bauplan
+server/      FastAPI + Postgres + ML-Pipeline (Whisper / OCR / Ollama)
+web/         SvelteKit + Tailwind PWA (Login, Dashboard, Werkzeuge, Chat, Admin)
 ```
+
+Detaillierte Begründung jeder Wahl: [`docs/stack.md`](docs/stack.md)
+Grammatik aller Prozesse: [`docs/process_ontology.md`](docs/process_ontology.md)
+Rollen × Prozess-Matrix: [`docs/roles_and_processes.md`](docs/roles_and_processes.md)
+Bau-Reihenfolge: [`docs/skeleton_plan.md`](docs/skeleton_plan.md)
+
+## Schnellstart (lokale Entwicklung)
+
+Voraussetzungen: macOS oder Linux mit Postgres 16, Python 3.11+, Bun, Ollama mit `llama3.1:8b`.
+
+```bash
+# 1. Postgres-Datenbank
+createdb praxisdoktor_dev
+
+# 2. Backend
+cd server
+uv sync
+uv run alembic upgrade head
+uv run python seed.py        # legt Rollen, Test-Benutzer, Prozesse an
+uv run uvicorn app.main:app --host 127.0.0.1 --port 8080
+
+# 3. Frontend (in einem zweiten Terminal)
+cd web
+bun install
+bun run dev                  # → http://localhost:5173
+```
+
+Test-Zugänge (alle Passwörter `praxis123`):
+
+| Benutzer | Rolle(n) |
+|---|---|
+| `admin` | Praxisinhaber |
+| `dr_inhaber` | Praxisinhaber + Arzt |
+| `dr_angestellt` | Arzt |
+| `mfa_anna` | Empfang |
+| `mfa_bea` | Behandlung |
+| `mfa_clara` | Abrechnung |
+| `manager_dora` | Praxismanager + Abrechnung |
 
 ## Datenschutz
 
-- Alle Verarbeitung erfolgt lokal (kein Cloud-Zugriff)
-- Audiodateien bleiben auf dem Server
-- SQLite-Datenbank liegt neben der EXE
+- Alle Patientendaten verbleiben auf der Praxis-Hardware (LAN-only Zugriff)
+- LLM-Inferenz lokal via Ollama, kein Cloud-Aufruf für PII
+- Postgres-Datenbank lokal; Audio-Dateien lokal im `audio/`-Verzeichnis
+- Dr. Rug erreicht das System auch von außen via vorhandener Praxis-VPN
+- Mitarbeiterinnen sehen die Anwendung ausschließlich aus dem Praxis-WLAN
+
+## Produktion (Windows)
+
+Aktuell als Entwicklungs-Skelett auf macOS gebaut. Produktiv-Setup auf dem Praxis-Server (NSSM-gemanagte Dienste für FastAPI + Postgres + Ollama + Caddy, Cloudflare Tunnel mit split-horizon DNS für `app.uro-karlsruhe.de`) folgt im nächsten Schritt vor Ort.
+
+Das Legacy-`v1.0.x`-Standalone-EXE-Setup (siehe `ANLEITUNG.txt`) bleibt vorerst als Fallback verfügbar.
 
 ## Deployment Strategy
 
