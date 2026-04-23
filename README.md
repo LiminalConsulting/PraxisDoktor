@@ -26,6 +26,16 @@ Bau-Reihenfolge: [`docs/skeleton_plan.md`](docs/skeleton_plan.md)
 Voraussetzungen: macOS oder Linux mit Postgres 16, Python 3.11+, Bun, Ollama mit `llama3.1:8b`.
 
 ```bash
+# alles in einem Befehl:
+./dev.sh
+```
+
+Das Skript prüft Voraussetzungen, legt die DB an, läuft Migrationen + Seed,
+und startet Backend (Port 8080) + Frontend (Port 5173) zusammen.
+
+Manuell wenn gewünscht:
+
+```bash
 # 1. Postgres-Datenbank
 createdb praxisdoktor_dev
 
@@ -64,7 +74,28 @@ Test-Zugänge (alle Passwörter `praxis123`):
 
 ## Produktion (Windows)
 
-Aktuell als Entwicklungs-Skelett auf macOS gebaut. Produktiv-Setup auf dem Praxis-Server (NSSM-gemanagte Dienste für FastAPI + Postgres + Ollama + Caddy, Cloudflare Tunnel mit split-horizon DNS für `app.uro-karlsruhe.de`) folgt im nächsten Schritt vor Ort.
+Single-EXE-Installer (`PraxisDoktorSetup-X.Y.Z.exe`) für Windows 10/11 — gebaut von GitHub Actions auf jedem `v2.*` Tag. Details: [`installer/README.md`](installer/README.md).
+
+Was die Setup.exe in einem Doppelklick installiert:
+
+- Portable **Postgres 16** unter `C:\Program Files\PraxisDoktor\pgsql\` (eigenes Datenverzeichnis, Port 54329, nur 127.0.0.1)
+- **Eingebettetes Python 3.11** mit allen Backend-Abhängigkeiten
+- Die **App** (FastAPI + statisches SvelteKit-Frontend) auf Port 8080
+- **Ollama** (postinstall, falls nicht vorhanden) + automatisches Pullen von `llama3.1:8b`
+- Drei **NSSM-verwaltete Windows-Dienste** mit Auto-Start beim Booten und Auto-Restart bei Abstürzen:
+  `PraxisDoktor-Postgres`, `PraxisDoktor-Ollama`, `PraxisDoktor-App`
+- **Migrationen + Seed** beim ersten Lauf (Rollen, Platzhalter-Konten, Prozesse)
+- **Browser** öffnet sich am Ende automatisch auf `http://localhost:8080`
+
+Keine Kommandozeile, keine schwarzen Fenster, keine Dev-Tools auf dem Praxis-Rechner.
+
+Release auslösen:
+
+```bash
+git tag v2.0.0
+git push origin v2.0.0
+# GitHub Actions baut PraxisDoktorSetup-2.0.0.exe und hängt es an den Release.
+```
 
 Das Legacy-`v1.0.x`-Standalone-EXE-Setup (siehe `ANLEITUNG.txt`) bleibt vorerst als Fallback verfügbar.
 
