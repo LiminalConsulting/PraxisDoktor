@@ -24,7 +24,6 @@ jobs:
     env:
       PG_VERSION: "16.4-1"
       OLLAMA_URL: "https://ollama.com/download/OllamaSetup.exe"
-      NSSM_URL: "https://nssm.cc/release/nssm-2.24.zip"
 
     steps:
       - name: Checkout
@@ -109,7 +108,18 @@ jobs:
         shell: pwsh
         run: |
           $pgZip = "pg.zip"
-          Invoke-WebRequest -Uri "https://get.enterprisedb.com/postgresql/postgresql-$env:PG_VERSION-windows-x64-binaries.zip" -OutFile $pgZip
+          $url = "https://get.enterprisedb.com/postgresql/postgresql-$env:PG_VERSION-windows-x64-binaries.zip"
+          $ok = $false
+          for ($i = 0; $i -lt 3; $i++) {
+            try {
+              Invoke-WebRequest -Uri $url -OutFile $pgZip -TimeoutSec 600
+              $ok = $true; break
+            } catch {
+              Write-Warning "attempt $($i+1) failed: $_"
+              Start-Sleep -Seconds 10
+            }
+          }
+          if (-not $ok) { throw "Postgres download failed after 3 attempts" }
           Expand-Archive -Path $pgZip -DestinationPath "installer/build/pgtmp"
           Copy-Item -Recurse "installer/build/pgtmp/pgsql/*" "installer/build/stage/pgsql/"
           Remove-Item -Recurse -Force "installer/build/pgtmp", $pgZip
@@ -120,19 +130,32 @@ jobs:
       - name: Download Ollama installer
         shell: pwsh
         run: |
-          Invoke-WebRequest -Uri $env:OLLAMA_URL -OutFile "installer/build/stage/OllamaSetup.exe"
+          $ok = $false
+          for ($i = 0; $i -lt 3; $i++) {
+            try {
+              Invoke-WebRequest -Uri $env:OLLAMA_URL -OutFile "installer/build/stage/OllamaSetup.exe" -TimeoutSec 600
+              $ok = $true; break
+            } catch {
+              Write-Warning "attempt $($i+1) failed: $_"
+              Start-Sleep -Seconds 10
+            }
+          }
+          if (-not $ok) { throw "Ollama download failed after 3 attempts" }
 
       # -----------------------------------------------------------------
-      # 6. Download NSSM
+      # 6. Get NSSM via Chocolatey (more reliable than nssm.cc which 503s)
       # -----------------------------------------------------------------
-      - name: Download NSSM
+      - name: Install NSSM
         shell: pwsh
         run: |
-          $nssmZip = "nssm.zip"
-          Invoke-WebRequest -Uri $env:NSSM_URL -OutFile $nssmZip
-          Expand-Archive -Path $nssmZip -DestinationPath "installer/build/nssmtmp"
-          Copy-Item "installer/build/nssmtmp/nssm-2.24/win64/nssm.exe" "installer/build/stage/nssm/nssm.exe"
-          Remove-Item -Recurse -Force "installer/build/nssmtmp", $nssmZip
+          choco install nssm --no-progress -y
+          # nssm is installed under C:\ProgramData\chocolatey\lib\NSSM\tools\
+          $nssmExe = (Get-ChildItem -Recurse -Filter nssm.exe "C:\ProgramData\chocolatey\lib\NSSM" | Where-Object { $_.FullName -match 'win64' } | Select-Object -First 1).FullName
+          if (-not $nssmExe) {
+            $nssmExe = (Get-Command nssm).Source
+          }
+          Write-Host "Found nssm.exe at: $nssmExe"
+          Copy-Item $nssmExe "installer/build/stage/nssm/nssm.exe"
 
       # -----------------------------------------------------------------
       # 7. Bundle embedded Python + pre-install dependencies
