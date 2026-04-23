@@ -69,6 +69,16 @@ export const api = {
 	},
 	logout: () => jfetch('/api/auth/logout', { method: 'POST' }),
 	me: () => jfetch<Me>('/api/auth/me'),
+	changePassword: (old_password: string, new_password: string) =>
+		jfetch('/api/auth/change-password', {
+			method: 'POST',
+			body: JSON.stringify({ old_password, new_password })
+		}),
+
+	intakeHealth: () => jfetch<{ ollama: { reachable: boolean; model_present?: boolean; expected_model: string; available_models?: string[]; error?: string } }>('/api/intake/health'),
+
+	markSeen: (pid: string) =>
+		jfetch<{ ok: boolean; last_seen_at: string }>(`/api/dashboard/seen/${pid}`, { method: 'POST' }),
 
 	dashboard: () => jfetch<{ processes: Process[] }>('/api/dashboard'),
 	saveLayout: (order: string[]) =>

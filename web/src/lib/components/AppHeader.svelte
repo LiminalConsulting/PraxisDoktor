@@ -44,12 +44,16 @@
 				<Settings size={15} /> Admin
 			</button>
 		{/if}
-		<div class="ml-2 mr-1 flex items-center gap-2 rounded-md bg-white/10 px-3 py-1.5 text-xs">
+		<button
+			class="ml-2 mr-1 flex items-center gap-2 rounded-md bg-white/10 px-3 py-1.5 text-xs transition hover:bg-white/20"
+			onclick={() => goto('/account')}
+			title="Mein Konto"
+		>
 			<div class="flex h-6 w-6 items-center justify-center rounded-full bg-white/20 text-[10px] font-semibold uppercase">
 				{$me?.display_name?.[0] ?? '?'}
 			</div>
 			<span class="opacity-90">{$me?.display_name}</span>
-		</div>
+		</button>
 		<button
 			class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-white/80 transition hover:bg-white/10 hover:text-white"
 			onclick={doLogout}

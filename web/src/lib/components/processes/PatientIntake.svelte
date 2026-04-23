@@ -2,7 +2,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { api, type ProcessInstance } from '$lib/api';
 	import { wsClient } from '$lib/ws';
-	import { Mic, Square, Upload, Check, X, Copy, FileText, ChevronLeft, Loader2 } from 'lucide-svelte';
+	import { Mic, Square, Upload, Check, X, Copy, FileText, ChevronLeft, Loader2, AlertTriangle } from 'lucide-svelte';
 
 	let { registerUndo }: { registerUndo?: (fn: () => void) => void } = $props();
 
@@ -25,6 +25,7 @@
 	let current = $state<ProcessInstance | null>(null);
 	let title = $state('');
 	let recState = $state<'idle' | 'recording' | 'uploading' | 'transcribing'>('idle');
+	let ollamaWarn = $state<string | null>(null);
 	let mediaRecorder: MediaRecorder | null = null;
 	let audioChunks: Blob[] = [];
 	let audioStream: MediaStream | null = null;
@@ -167,8 +168,24 @@
 		}
 	}
 
+	async function checkOllama() {
+		try {
+			const h = await api.intakeHealth();
+			if (!h.ollama.reachable) {
+				ollamaWarn = `Ollama nicht erreichbar (${h.ollama.expected_model}). Erst nach Start der KI-Laufzeit kann extrahiert werden.`;
+			} else if (h.ollama.model_present === false) {
+				ollamaWarn = `Ollama läuft, aber das Modell ${h.ollama.expected_model} ist nicht installiert. Im Terminal: \`ollama pull ${h.ollama.expected_model}\`.`;
+			} else {
+				ollamaWarn = null;
+			}
+		} catch {
+			ollamaWarn = null;
+		}
+	}
+
 	onMount(() => {
 		loadInstances();
+		checkOllama();
 		const handler = (e: KeyboardEvent) => {
 			if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !(e.target as HTMLElement)?.matches?.('input,textarea')) {
 				e.preventDefault();
@@ -180,6 +197,14 @@
 	});
 	onDestroy(() => unsub?.());
 </script>
+
+{#if ollamaWarn}
+	<div class="mb-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+		<AlertTriangle size={16} class="mt-0.5 flex-shrink-0" />
+		<div class="flex-1">{ollamaWarn}</div>
+		<button class="text-xs font-medium underline" onclick={checkOllama}>Erneut prüfen</button>
+	</div>
+{/if}
 
 {#if !current}
 	<!-- Landing: start-new + recent sessions -->
@@ -295,6 +320,13 @@
 					</label>
 				</div>
 			</div>
+
+			{#if current.current_state?.error}
+				<div class="mt-4 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+					<AlertTriangle size={16} class="mt-0.5 flex-shrink-0" />
+					<div>{current.current_state.error}</div>
+				</div>
+			{/if}
 
 			{#if current.current_state?.transcript}
 				<details class="mt-4 rounded-lg bg-praxis-50 p-3 text-xs text-ink-700">
