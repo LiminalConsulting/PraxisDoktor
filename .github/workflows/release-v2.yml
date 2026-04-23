@@ -1,0 +1,217 @@
+name: Build & Release PraxisDoktorSetup (v2+)
+
+# Triggered by any tag starting with v2.
+# Produces installer/output/PraxisDoktorSetup-<version>.exe and attaches it
+# to the GitHub release.
+
+on:
+  push:
+    tags:
+      - "v2.*"
+      - "v3.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version (e.g. 2.0.0-test)"
+        default: "2.0.0-dev"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      PG_VERSION: "16.4-1"
+      OLLAMA_URL: "https://ollama.com/download/OllamaSetup.exe"
+      NSSM_URL: "https://nssm.cc/release/nssm-2.24.zip"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine version
+        id: ver
+        shell: pwsh
+        run: |
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $v = "${{ github.event.inputs.version }}"
+          } else {
+            $v = "${{ github.ref_name }}" -replace '^v',''
+          }
+          Write-Host "Version: $v"
+          "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      # -----------------------------------------------------------------
+      # 1. Build the SvelteKit frontend
+      # -----------------------------------------------------------------
+      - name: Install frontend deps
+        working-directory: web
+        run: bun install
+
+      - name: Build frontend
+        working-directory: web
+        run: bun run build
+
+      # -----------------------------------------------------------------
+      # 2. Build the Python backend venv (embedded python will reuse this)
+      # -----------------------------------------------------------------
+      - name: Install backend deps
+        working-directory: server
+        run: uv sync
+
+      # -----------------------------------------------------------------
+      # 3. Stage the install tree under installer/build/stage/
+      # -----------------------------------------------------------------
+      - name: Stage install tree
+        shell: pwsh
+        run: |
+          $stage = "installer/build/stage"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          New-Item -ItemType Directory -Force -Path "$stage/app/server" | Out-Null
+          New-Item -ItemType Directory -Force -Path "$stage/app/web_build" | Out-Null
+          New-Item -ItemType Directory -Force -Path "$stage/runtime" | Out-Null
+          New-Item -ItemType Directory -Force -Path "$stage/python" | Out-Null
+          New-Item -ItemType Directory -Force -Path "$stage/pgsql" | Out-Null
+          New-Item -ItemType Directory -Force -Path "$stage/nssm" | Out-Null
+
+          # Copy app code (server + built frontend)
+          Copy-Item -Recurse server\app "$stage/app/server/app"
+          Copy-Item -Recurse server\alembic "$stage/app/server/alembic"
+          Copy-Item server\alembic.ini "$stage/app/server/"
+          Copy-Item server\seed.py "$stage/app/server/"
+          Copy-Item server\pyproject.toml "$stage/app/server/"
+          Copy-Item server\uv.lock "$stage/app/server/"
+          Copy-Item -Recurse web\build\* "$stage/app/web_build/"
+
+          # Runtime scripts
+          Copy-Item installer\runtime\* "$stage/runtime/"
+          Copy-Item installer\runtime\open-browser.bat "$stage/"
+
+      # -----------------------------------------------------------------
+      # 4. Download + embed Portable Postgres
+      #    PostgreSQL.org publishes "embedded ZIP" archives for each version.
+      # -----------------------------------------------------------------
+      - name: Download Postgres portable
+        shell: pwsh
+        run: |
+          $pgZip = "pg.zip"
+          Invoke-WebRequest -Uri "https://get.enterprisedb.com/postgresql/postgresql-$env:PG_VERSION-windows-x64-binaries.zip" -OutFile $pgZip
+          Expand-Archive -Path $pgZip -DestinationPath "installer/build/pgtmp"
+          Copy-Item -Recurse "installer/build/pgtmp/pgsql/*" "installer/build/stage/pgsql/"
+          Remove-Item -Recurse -Force "installer/build/pgtmp", $pgZip
+
+      # -----------------------------------------------------------------
+      # 5. Download Ollama installer (ships alongside; user runs if missing)
+      # -----------------------------------------------------------------
+      - name: Download Ollama installer
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri $env:OLLAMA_URL -OutFile "installer/build/stage/OllamaSetup.exe"
+
+      # -----------------------------------------------------------------
+      # 6. Download NSSM
+      # -----------------------------------------------------------------
+      - name: Download NSSM
+        shell: pwsh
+        run: |
+          $nssmZip = "nssm.zip"
+          Invoke-WebRequest -Uri $env:NSSM_URL -OutFile $nssmZip
+          Expand-Archive -Path $nssmZip -DestinationPath "installer/build/nssmtmp"
+          Copy-Item "installer/build/nssmtmp/nssm-2.24/win64/nssm.exe" "installer/build/stage/nssm/nssm.exe"
+          Remove-Item -Recurse -Force "installer/build/nssmtmp", $nssmZip
+
+      # -----------------------------------------------------------------
+      # 7. Bundle embedded Python + pre-install dependencies
+      #    We use python-embed + get-pip + pip install the deps, so the
+      #    target machine doesn't need Python installed.
+      # -----------------------------------------------------------------
+      - name: Embed Python with deps
+        shell: pwsh
+        run: |
+          $pyZip = "python-embed.zip"
+          Invoke-WebRequest -Uri "https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-amd64.zip" -OutFile $pyZip
+          Expand-Archive -Path $pyZip -DestinationPath "installer/build/stage/python"
+          Remove-Item $pyZip
+
+          # Enable site-packages and pip for the embedded python
+          $pth = "installer/build/stage/python/python311._pth"
+          @"
+          python311.zip
+          .
+          Lib
+          Lib\site-packages
+          import site
+          "@ | Set-Content -Path $pth -Encoding ASCII
+
+          # bootstrap pip
+          Invoke-WebRequest -Uri "https://bootstrap.pypa.io/get-pip.py" -OutFile "installer/build/stage/python/get-pip.py"
+          & "installer/build/stage/python/python.exe" "installer/build/stage/python/get-pip.py" --no-warn-script-location
+
+          # install deps from server/pyproject.toml
+          & "installer/build/stage/python/python.exe" -m pip install --no-warn-script-location `
+            fastapi "uvicorn[standard]" "sqlalchemy[asyncio]" alembic asyncpg "psycopg[binary]" `
+            argon2-cffi itsdangerous pydantic-settings python-multipart aiofiles websockets `
+            faster-whisper easyocr soundfile av scipy "numpy<2" speechbrain torch torchaudio `
+            scikit-learn httpx
+
+      # -----------------------------------------------------------------
+      # 8. Generate an icon.ico from the SVG
+      # -----------------------------------------------------------------
+      - name: Generate icon.ico
+        shell: pwsh
+        run: |
+          # Use ImageMagick bundled with GitHub runners
+          magick web/static/icon-512.png -define icon:auto-resize=16,32,48,64,128,256 installer/icon.ico
+
+      # -----------------------------------------------------------------
+      # 9. Run Inno Setup
+      # -----------------------------------------------------------------
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Compile installer
+        shell: pwsh
+        working-directory: installer
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion=${{ steps.ver.outputs.version }} PraxisDoktor.iss
+
+      - name: Upload installer as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PraxisDoktorSetup-${{ steps.ver.outputs.version }}
+          path: installer/output/*.exe
+
+      # -----------------------------------------------------------------
+      # 10. Attach to GitHub Release (when triggered by a tag)
+      # -----------------------------------------------------------------
+      - name: Create/Update GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: installer/output/*.exe
+          body: |
+            **PraxisDoktor ${{ steps.ver.outputs.version }}** — Windows-Installer
+
+            1. Doppelklick auf `PraxisDoktorSetup-${{ steps.ver.outputs.version }}.exe`
+            2. Setup führt durch Postgres-Init, Ollama-Installation (falls fehlt), Modell-Download
+            3. Browser öffnet sich bei `http://localhost:8080`
+
+            Test-Zugänge (Passwort jeweils `praxis123`):
+            `admin`, `dr_inhaber`, `dr_angestellt`, `mfa_anna`, `mfa_bea`, `mfa_clara`, `manager_dora`
+
+            Dienste werden via NSSM eingerichtet, starten automatisch beim Booten.
