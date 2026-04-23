@@ -9,14 +9,14 @@
 		decline: 'Nicht im Umfang'
 	};
 	const colors: Record<string, string> = {
-		co_pilot: 'bg-teal-100 text-teal-800',
-		autonomous: 'bg-emerald-100 text-emerald-800',
-		placeholder: 'bg-stone-100 text-stone-600',
-		dashboard_only: 'bg-amber-100 text-amber-800',
-		decline: 'bg-stone-200 text-stone-500'
+		co_pilot: 'bg-praxis-100 text-praxis-800 ring-1 ring-praxis-200',
+		autonomous: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',
+		placeholder: 'bg-ink-100 text-ink-500 ring-1 ring-ink-200',
+		dashboard_only: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',
+		decline: 'bg-ink-100 text-ink-400 ring-1 ring-ink-200'
 	};
 </script>
 
-<span class={`inline-block rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${colors[phase] || 'bg-stone-100 text-stone-600'}`}>
-	{labels[phase] || phase}
+<span class={`inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${colors[phase] ?? 'bg-ink-100 text-ink-500'}`}>
+	{labels[phase] ?? phase}
 </span>

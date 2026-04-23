@@ -1,5 +1,33 @@
 @import "tailwindcss";
 
+/* PraxisDoktor design tokens — aligned with the legacy v1 tool */
+@theme {
+	--color-praxis-50:  #f4f6f5;
+	--color-praxis-100: #eaf0ec;
+	--color-praxis-200: #d3e0d6;
+	--color-praxis-300: #c8d4cb;
+	--color-praxis-400: #9bb1a2;
+	--color-praxis-500: #5a7d65;   /* accent */
+	--color-praxis-600: #4a6c54;
+	--color-praxis-700: #3c5a46;   /* primary dark */
+	--color-praxis-800: #2f4737;
+	--color-praxis-900: #1f3025;
+
+	--color-ink-900: #111;
+	--color-ink-700: #303030;
+	--color-ink-500: #6b6b6b;
+	--color-ink-400: #9e9e9e;
+	--color-ink-300: #c8c8c8;
+	--color-ink-200: #e6e6e6;
+	--color-ink-100: #f4f4f4;
+
+	--color-warn:  #c98a17;
+	--color-error: #c4302b;
+	--color-ok:    #4a8b54;
+
+	--font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
 :root {
 	color-scheme: light;
 }
@@ -7,11 +35,27 @@
 html, body {
 	height: 100%;
 	margin: 0;
-	font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-	background: #fafafa;
-	color: #1a1a1a;
+	font-family: var(--font-sans);
+	background: var(--color-praxis-50);
+	color: var(--color-ink-900);
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
 }
 
 * {
 	box-sizing: border-box;
 }
+
+/* Subtle scrollbar */
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb { background: var(--color-ink-200); border-radius: 8px; }
+*::-webkit-scrollbar-thumb:hover { background: var(--color-ink-300); }
+*::-webkit-scrollbar-track { background: transparent; }
+
+/* Form element resets that play well with Tailwind utilities */
+input, button, textarea, select {
+	font: inherit;
+	color: inherit;
+}
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; }

@@ -5,6 +5,7 @@
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import ChatPanel from '$lib/components/ChatPanel.svelte';
 	import ProcessIcon from '$lib/components/ProcessIcon.svelte';
+	import PhaseBadge from '$lib/components/PhaseBadge.svelte';
 	import { MessageSquare, Undo2 } from 'lucide-svelte';
 
 	let {
@@ -37,37 +38,56 @@
 	}
 </script>
 
-<div class="flex h-screen flex-col bg-stone-50">
+<div class="flex h-screen flex-col bg-praxis-50">
 	<AppHeader />
 
 	<div class="flex flex-1 overflow-hidden">
 		<!-- Left: vertical tab bar of accessible processes -->
-		<nav class="flex w-14 flex-col items-center gap-1 border-r border-stone-200 bg-white py-2">
+		<nav class="flex w-16 flex-col items-center gap-1 border-r border-praxis-200 bg-white py-3">
 			{#each allProcs as p (p.id)}
 				<button
-					class="flex h-10 w-10 items-center justify-center rounded-lg transition hover:bg-stone-100"
-					class:bg-teal-100={p.id === processId}
-					class:text-teal-800={p.id === processId}
-					class:text-stone-600={p.id !== processId}
+					class={`group relative flex h-11 w-11 items-center justify-center rounded-lg transition
+						${p.id === processId
+							? 'bg-praxis-700 text-white shadow-sm'
+							: 'text-ink-500 hover:bg-praxis-100 hover:text-praxis-700'}`}
 					title={p.display_name}
-					on:click={() => nav(p.id)}
+					onclick={() => nav(p.id)}
 				>
-					<ProcessIcon name={p.icon} size={18} />
+					<ProcessIcon name={p.icon} size={20} />
+					{#if p.id === processId}
+						<span class="absolute -left-3 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-praxis-700"></span>
+					{/if}
 				</button>
 			{/each}
 		</nav>
 
 		<!-- Center: tool content -->
-		<main class="flex-1 overflow-y-auto">
-			<div class="border-b border-stone-200 bg-white px-6 py-3 flex items-center justify-between">
-				<h1 class="text-lg font-semibold text-stone-900">
-					{current?.display_name ?? processId}
-				</h1>
+		<main class="flex flex-1 flex-col overflow-hidden">
+			<div class="flex h-14 items-center justify-between border-b border-praxis-200 bg-white px-6">
+				<div class="flex items-center gap-3">
+					<div class="flex h-9 w-9 items-center justify-center rounded-lg bg-praxis-100 text-praxis-700">
+						{#if current}
+							<ProcessIcon name={current.icon} size={18} />
+						{/if}
+					</div>
+					<div>
+						<h1 class="text-[15px] font-semibold leading-tight text-ink-900">
+							{current?.display_name ?? processId}
+						</h1>
+						{#if current}
+							<div class="flex items-center gap-2 text-[11px] text-ink-500">
+								<PhaseBadge phase={current.phase} />
+								<span class="opacity-60">·</span>
+								<span class="capitalize">{current.surface === 'tool' ? 'Werkzeug' : current.surface === 'conversation' ? 'Gespräch' : 'Übersicht'}</span>
+							</div>
+						{/if}
+					</div>
+				</div>
 				<div class="flex items-center gap-2">
 					{#if showUndo}
 						<button
-							class="flex items-center gap-1 rounded px-2 py-1 text-sm text-stone-600 hover:bg-stone-100"
-							on:click={() => onUndo?.()}
+							class="flex items-center gap-1.5 rounded-md border border-praxis-300 bg-white px-3 py-1.5 text-sm text-ink-700 transition hover:bg-praxis-100 hover:text-praxis-800"
+							onclick={() => onUndo?.()}
 							title="Letzte Aktion rückgängig (Cmd+Z)"
 						>
 							<Undo2 size={14} /> Rückgängig
@@ -75,7 +95,7 @@
 					{/if}
 				</div>
 			</div>
-			<div class="p-6">
+			<div class="flex-1 overflow-y-auto p-6">
 				{@render children()}
 			</div>
 		</main>
@@ -85,8 +105,9 @@
 			<div class="flex">
 				<ChatPanel processId={processId} open={chatOpen} />
 				<button
-					class="flex w-9 items-center justify-center border-l border-stone-200 bg-white text-stone-600 hover:bg-stone-100"
-					on:click={() => (chatOpen = !chatOpen)}
+					class={`flex w-10 items-center justify-center border-l border-praxis-200 transition
+						${chatOpen ? 'bg-praxis-700 text-white' : 'bg-white text-ink-500 hover:bg-praxis-100 hover:text-praxis-700'}`}
+					onclick={() => (chatOpen = !chatOpen)}
 					title={chatOpen ? 'Chat schließen' : 'Chat öffnen'}
 				>
 					<MessageSquare size={16} />
