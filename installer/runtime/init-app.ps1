@@ -40,8 +40,10 @@ try {
 	& $pgctl -D $DataDir stop -m fast | Out-Null
 }
 
-# Pull Ollama model (only if Ollama is installed)
-if (Test-Path $ollamaExe) {
+# Pull Ollama model (only if Ollama is installed; skippable for CI smoke tests)
+if ($env:PRAXISDOKTOR_SKIP_MODEL_PULL -eq "1") {
+	Write-Host "→ KI-Modell-Download übersprungen (PRAXISDOKTOR_SKIP_MODEL_PULL=1)."
+} elseif (Test-Path $ollamaExe) {
 	Write-Host "→ Lade KI-Modell llama3.1:8b (~4.7 GB, kann dauern)…"
 	& $ollamaExe pull llama3.1:8b
 	if ($LASTEXITCODE -ne 0) {
