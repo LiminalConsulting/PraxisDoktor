@@ -90,25 +90,37 @@ Already in place. Ports as-is.
 Already in place. Voice-enrollment-based speaker identification. Ports as-is.
 
 ### Process supervisor (production, Windows): NSSM
-Wraps FastAPI + Postgres + Ollama + Caddy as Windows services. No more "leave the black cmd window open." Out of dev-skeleton scope; documented for the production handoff.
+Wraps FastAPI + Postgres + Ollama + cloudflared as Windows services. No more "leave the black cmd window open." Four NSSM-managed services on the practice box: `PraxisDoktor-Postgres`, `PraxisDoktor-Ollama`, `PraxisDoktor-App`, `PraxisDoktor-Tunnel`.
 
-### Reverse proxy (production): Caddy
-One binary, automatic local TLS for `app.uro-karlsruhe.de` via split-horizon DNS, simple JSON config. Sits in front of FastAPI. Out of dev-skeleton scope.
+### Public website + tunnel: SvelteKit on Cloudflare Pages + Cloudflare Tunnel
+Replaces both the old WordPress (`uro-karlsruhe.de`) and the third-party booking/intake widgets (TerMed, Infoskop). Lives in `public/` in this repo. Same SvelteKit + Tailwind + brand-token stack as the internal app — single source of truth for the visual language via `shared/brand.css`.
 
-### Public website
-Stays on `cloudpit` WordPress at `uro-karlsruhe.de` for now. DNS eventually moves to Cloudflare so we can add `app.uro-karlsruhe.de` for the PWA via split-horizon DNS without touching the existing site. Website replacement deferred indefinitely per current scope decision.
+- **Public site** is statically built and deployed to **Cloudflare Pages** (free tier, edge-cached). Zero Workers in the data path. No patient data ever sees Cloudflare's compute.
+- **Booking + Anamnese forms** POST to `https://app.{domain}/api/public/*` (e.g. `app.uro-karlsruhe.de`).
+- **`app.{domain}`** is a Cloudflare Tunnel hostname routed through `cloudflared` running as a Windows service on the practice server. Tunnel is **outbound-only** — no port opened on the practice firewall, no public IP, no static-IP rental.
+- **Auth on `/api/public/*`** is a shared friction-reducer key (`X-Public-Key` header, generated and persisted as `var/public_api_key.txt` on first server start) plus an in-process rate limit. The real security boundary is the tunnel + (optionally) Cloudflare Access in front of the public origin.
+- **Drittlandtransfer status:** form submissions transit Cloudflare's network (US-incorporated). Patient data terminates on the practice server; nothing is stored at the edge. Documented in `regulatory_landscape.md` §4. The alternative if it ever becomes an issue is a tiny EU VPS running an nginx proxy + WireGuard; the architecture is portable.
+
+### Per-client provisioning: `tooling/new-client.sh`
+One Bash script using `wrangler` + `cloudflared` to create the four Cloudflare objects per client (Pages project, Tunnel, DNS routing, generated tunnel token + shared key). Idempotent. Per-client config lands in `tooling/clients/<slug>/` (gitignored). Convention is `praxisdoktor-<slug>` for both Pages project and tunnel name.
+
+### Reverse proxy
+**Removed.** No Caddy needed. The Cloudflare Tunnel handles TLS termination at the edge. Inside the LAN, FastAPI on `:8080` is reached directly (HTTP). Simpler stack, one fewer service.
 
 ## Network Posture
 
-**LAN-only-for-everyone**, with VPN for Papa as the exception. Rationale:
+**LAN-only-for-everyone for internal tools**, with VPN for Papa as the staff exception. **Cloudflare Tunnel for one-way public form ingestion.** Rationale:
 
-- All PII never leaves the practice's local network
-- Strongest possible §203 / DSGVO posture (zero edge transit of patient data)
-- One identity, one tool, one auth stack — no split between "chat over Cloudflare" and "patient data via VPN"
-- Employees lose the ability to read team chat from outside; this is acceptable because they have alternatives (WhatsApp will continue to exist) and the simplicity win is large
-- Papa already operates a VPN to the practice and uses it for off-site admin work; the new app simply loads cleanly through that existing VPN with no additional setup
+- All authenticated practice work happens on the LAN — staff log in only from inside the building (or Papa via VPN)
+- The public website is genuinely public (it has to be — patients reach it from anywhere) and lives at the edge with no patient data
+- Public form submissions (booking requests, Anamnesebogen) flow **inbound** through the Cloudflare Tunnel into the practice server's `/api/public/*` endpoints. Data terminates locally; CF is the tube, not the destination
+- The internal `/api/*` (everything else) is unreachable from the public internet — the tunnel exposes only the `/api/public/*` namespace (via tunnel routing config)
+- One identity stack, one origin server, no split between "chat over Cloudflare" and "patient data via VPN" inside the *internal* tool
 
-**Split-horizon DNS** lets `app.uro-karlsruhe.de` resolve to a public address (when accessed via Cloudflare for any cloud-served future surface) AND to the practice LAN's internal IP (when accessed inside the practice). Same hostname, different answer depending on where the request originates.
+**Topology summary:**
+- `uro-karlsruhe.de` → Cloudflare Pages (public marketing site, static)
+- `app.uro-karlsruhe.de` → Cloudflare Tunnel → practice server `:8080` (only `/api/public/*` exposed)
+- Internal `app.uro-karlsruhe.de` (split-horizon DNS, future): same hostname resolving to LAN IP from inside the practice, for staff-side access without traversing Cloudflare. Optional, deferred until measurably useful.
 
 ## Languages We Have to Think In
 
@@ -118,15 +130,16 @@ Stays on `cloudpit` WordPress at `uro-karlsruhe.de` for now. DNS eventually move
 
 That is the floor. Anything else (e.g. a build script in Bash, a YAML config) is a small auxiliary, not a "language we work in."
 
-## Five Processes on the Production Box
+## Four Processes on the Production Box
 
-1. FastAPI (Uvicorn) — the app server
-2. Postgres — state
-3. Ollama — local LLM
-4. (Authentik) — *removed by decision; auth lives inside FastAPI*
-5. Caddy — reverse proxy + TLS
+1. **FastAPI** (Uvicorn) — the app server, serves the internal SvelteKit build + all APIs
+2. **Postgres** — state
+3. **Ollama** — local LLM
+4. **cloudflared** — Cloudflare Tunnel client, exposes `/api/public/*` to the public Cloudflare Pages site (no inbound firewall hole)
 
-All NSSM-managed, all on the practice Windows server, no containerization. Five Windows services. Restart-on-failure. Auto-start on boot. Documented in the production handoff (out of dev scope).
+All NSSM-managed (`PraxisDoktor-App`, `PraxisDoktor-Postgres`, `PraxisDoktor-Ollama`, `PraxisDoktor-Tunnel`). All on the practice Windows server, no containerization. Restart-on-failure. Auto-start on boot. The tunnel service is skipped automatically if no token is provided (single-machine offline mode).
+
+**Removed by decision:** Authentik (auth lives inside FastAPI), Caddy (Cloudflare Tunnel terminates TLS at the edge; LAN traffic stays HTTP).
 
 ## Explicitly Rejected
 
@@ -139,8 +152,11 @@ All NSSM-managed, all on the practice Windows server, no containerization. Five 
 - Docker / Docker Compose / Kubernetes — five services on one Windows box, NSSM is the right tool
 - Microservices — one Python process serves the entire app, one repo, one deploy
 - TipTap / Lexical / CodeMirror — no rich text need
-- Resend / SendGrid / external SMTP — Cloudflare Email Service when we get there
+- Resend / SendGrid / external SMTP — Cloudflare Email Routing when we get there
 - Separate "feedback portal" — feedback is a view over the transition log
+- Caddy — Cloudflare Tunnel handles edge TLS, LAN traffic is plain HTTP
+- Doctolib / TerMed / Infoskop / external booking & intake — replaced by the public site → tunnel → `/api/public/*` flow
+- Cloudflare Workers (in the practice path) — patient data must stay on-prem; Workers are a track-B primitive (BeatNonstop, festivals, non-sensitive clients)
 
 ## When to Revisit Each Decision
 

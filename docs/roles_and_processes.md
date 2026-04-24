@@ -43,14 +43,16 @@ The initial set of processes the system tracks. Each appears as a card on the da
 | `patient_intake` | Patientenaufnahme | tool | co_pilot | audio, image, text | structured_record, clipboard |
 | `rechnungspruefung` | Rechnungsprüfung | tool | co_pilot (planned) | file, text | structured_record, clipboard |
 | `team_chat` | Team-Chat | conversation | co_pilot (live day-1) | text, audio, file | notification |
-| `termin_uebersicht` | Termin-Übersicht | dashboard_only | dashboard_only | (read from existing scheduler) | notification |
-| `anamnesebogen` | Anamnesebogen-Verwaltung | dashboard_only | dashboard_only | image, file | structured_record |
+| `termin_uebersicht` | Terminverwaltung | tool | co_pilot | text, structured_record (incl. public booking_requested) | structured_record, notification |
+| `anamnesebogen` | Anamnesebögen | tool | co_pilot | text, structured_record, file (incl. public form_submitted) | structured_record, notification |
 | `krankenkassen_abrechnung` | Krankenkassen-Abrechnung | dashboard_only | decline (initially) | (observed only) | notification |
 | `materialverwaltung` | Materialverwaltung | tool | placeholder | text, structured_record | structured_record, notification |
 | `personal_schichtplan` | Personal & Schichtplan | tool | placeholder | text, structured_record | structured_record, notification |
 | `email_triage` | E-Mail-Triage | tool | placeholder | text, file | notification, clipboard |
 
 "Placeholder" means the card exists, the route exists, the empty tool view renders, but no functionality is built yet. They will be built one at a time as real needs are confirmed with the practice.
+
+**Public-site integration:** `termin_uebersicht` and `anamnesebogen` were promoted from `dashboard_only` to real `co_pilot` tools when the public site (in `public/`) replaced the third-party booking widget (TerMed) and intake form (Infoskop). Submissions from the public site arrive via `/api/public/booking-request` and `/api/public/anamnese-submit` and create new ProcessInstances with initial `booking_requested` / `form_submitted` transitions. Staff act on them from the dashboard with `booking_confirmed` / `form_reviewed` etc. — the existing transition + undo machinery applies unchanged.
 
 "Decline (initially)" for Krankenkassen-Abrechnung means: we observe and surface state, but do not attempt to automate the actual billing submission. This protects the offer from scope-creep into a regulated process where the cost of error is high and the benefit unclear at this stage.
 
