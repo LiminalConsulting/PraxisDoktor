@@ -10,7 +10,7 @@ from . import jobs
 from .config import get_settings
 from .db import SessionLocal
 from .intake.pipeline import run_intake_pipeline, run_intake_ocr
-from .routers import admin, auth as auth_router, chat, dashboard, intake, processes
+from .routers import admin, auth as auth_router, chat, dashboard, intake, processes, public
 from .sync import sync_registry
 from .ws import router as ws_router
 
@@ -44,6 +44,7 @@ app.include_router(processes.router)
 app.include_router(chat.router)
 app.include_router(intake.router)
 app.include_router(admin.router)
+app.include_router(public.router)
 app.include_router(ws_router)
 
 

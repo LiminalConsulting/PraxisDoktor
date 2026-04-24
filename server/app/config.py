@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     audio_dir: str = "./audio"
     environment: str = "development"
     data_dir: str = "./var"
+    # Shared secret the public website (Cloudflare Pages) sends with every
+    # /api/public/* request. Generated-and-persisted on first run, like session_secret.
+    public_api_key: str = ""
 
     @property
     def audio_path(self) -> Path:
@@ -36,18 +39,18 @@ class Settings(BaseSettings):
         return self.database_url.replace("+asyncpg", "+psycopg")
 
 
-def _ensure_session_secret(settings: Settings) -> None:
-    """If no SESSION_SECRET was set via env/.env, generate one and persist it
-    in var/session_secret.txt so it survives restarts but is never hardcoded."""
-    if settings.session_secret:
+def _ensure_persisted_secret(settings: Settings, attr: str, filename: str) -> None:
+    if getattr(settings, attr):
         return
-    secret_file = settings.data_path / "session_secret.txt"
+    secret_file = settings.data_path / filename
     if secret_file.exists():
-        settings.session_secret = secret_file.read_text().strip()
-        if settings.session_secret:
+        val = secret_file.read_text().strip()
+        if val:
+            setattr(settings, attr, val)
             return
-    settings.session_secret = secrets.token_hex(32)
-    secret_file.write_text(settings.session_secret)
+    val = secrets.token_hex(32)
+    setattr(settings, attr, val)
+    secret_file.write_text(val)
     try:
         os.chmod(secret_file, 0o600)
     except OSError:
@@ -57,5 +60,6 @@ def _ensure_session_secret(settings: Settings) -> None:
 @lru_cache
 def get_settings() -> Settings:
     s = Settings()
-    _ensure_session_secret(s)
+    _ensure_persisted_secret(s, "session_secret", "session_secret.txt")
+    _ensure_persisted_secret(s, "public_api_key", "public_api_key.txt")
     return s
