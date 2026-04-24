@@ -4,6 +4,8 @@
 	import { api } from '$lib/api';
 	import ToolLayout from '$lib/components/ToolLayout.svelte';
 	import PatientIntake from '$lib/components/processes/PatientIntake.svelte';
+	import Patientenakte from '$lib/components/processes/Patientenakte.svelte';
+	import Rechnungspruefung from '$lib/components/processes/Rechnungspruefung.svelte';
 	import TeamChatView from '$lib/components/processes/TeamChatView.svelte';
 	import PlaceholderTool from '$lib/components/processes/PlaceholderTool.svelte';
 	import DashboardOnlyView from '$lib/components/processes/DashboardOnlyView.svelte';
@@ -38,6 +40,18 @@
 	>
 		{#snippet children()}
 			<PatientIntake registerUndo={(fn) => (undoFn = fn)} />
+		{/snippet}
+	</ToolLayout>
+{:else if pid === 'patientenakte'}
+	<ToolLayout processId={pid} showChatToggle>
+		{#snippet children()}
+			<Patientenakte />
+		{/snippet}
+	</ToolLayout>
+{:else if pid === 'rechnungspruefung'}
+	<ToolLayout processId={pid} showChatToggle>
+		{#snippet children()}
+			<Rechnungspruefung />
 		{/snippet}
 	</ToolLayout>
 {:else if pid === 'team_chat'}

@@ -44,6 +44,69 @@ export type ProcessInstance = {
 	current_state: Record<string, any>;
 };
 
+export type Patient = {
+	id: string;
+	nachname: string;
+	vorname: string;
+	geburtsdatum: string | null;
+	geschlecht: 'M' | 'W' | 'D' | null;
+	titel: string | null;
+	anrede: string | null;
+	strasse: string | null;
+	hausnr: string | null;
+	plz: string | null;
+	ort: string | null;
+	telefon_privat: string | null;
+	telefon_mobil: string | null;
+	email: string | null;
+	muttersprache: string | null;
+	_source: 'mock' | 'mariadb';
+	_grounded: boolean;
+};
+
+export type Fall = {
+	id: string;
+	patient_id: string;
+	quartal: string;
+	fallart: 'GKV' | 'Privat' | 'BG' | 'Selbstzahler' | 'Unbekannt';
+	diagnose_codes: string[];
+	eroeffnet_am: string | null;
+	geschlossen_am: string | null;
+	_source: string;
+	_grounded: boolean;
+};
+
+export type Befund = {
+	id: string;
+	patient_id: string;
+	fall_id: string | null;
+	erstellt_am: string | null;
+	ersteller: string | null;
+	typ: string | null;
+	inhalt: string;
+	_source: string;
+	_grounded: boolean;
+};
+
+export type CoherenceIssue = {
+	severity: 'info' | 'warning' | 'error';
+	record_kind: 'patient' | 'fall' | 'befund' | 'abrechnung';
+	record_id: string;
+	rule: string;
+	message: string;
+	suggestion: string | null;
+};
+
+export type RuleIssue = {
+	severity: 'info' | 'warning' | 'error';
+	rule_id: string;
+	rule_name: string;
+	position_ids: string[];
+	message: string;
+	suggestion: string | null;
+	source: string | null;
+};
+
 async function jfetch<T>(url: string, init: RequestInit = {}): Promise<T> {
 	const res = await fetch(url, {
 		credentials: 'include',
@@ -137,6 +200,80 @@ export const api = {
 		if (!res.ok) throw new Error(await res.text());
 		return res.json();
 	},
+
+	// ------- Patientenakte (read-only Medical Office mirror) -------
+	patientenakteMeta: () =>
+		jfetch<{ adapter: string; grounded_kinds: string[]; ungrounded_kinds: string[] }>(
+			'/api/patientenakte/_meta'
+		),
+	patientenakteList: (q: string, limit = 50) =>
+		jfetch<{ adapter: string; patients: Patient[] }>(
+			`/api/patientenakte/patients?q=${encodeURIComponent(q)}&limit=${limit}`
+		),
+	patientenakteGet: (pid: string) =>
+		jfetch<{
+			adapter: string;
+			patient: Patient;
+			faelle: { grounded: boolean; reason?: string; data: Fall[] };
+			befunde: { grounded: boolean; reason?: string; data: Befund[] };
+			coherence_issues: CoherenceIssue[];
+			view_transition_id: string;
+		}>(`/api/patientenakte/patients/${encodeURIComponent(pid)}`),
+	patientenakteCoherence: (limit = 200) =>
+		jfetch<{ adapter: string; scanned_patients: number; issue_count: number; issues: CoherenceIssue[] }>(
+			`/api/patientenakte/coherence?limit=${limit}`
+		),
+	patientenakteDismiss: (record_id: string, rule: string, note = '') =>
+		jfetch<{ id: string }>('/api/patientenakte/coherence/dismiss', {
+			method: 'POST',
+			body: JSON.stringify({ record_id, rule, note })
+		}),
+
+	// ------- Rechnungsprüfung -------
+	rechnungspruefungMeta: () =>
+		jfetch<{
+			adapter: string;
+			grounded_kinds: string[];
+			ungrounded_kinds: string[];
+			rule_count: number;
+			rules: { id: string; name: string; catalog: string; source: string | null }[];
+		}>('/api/rechnungspruefung/_meta'),
+	rechnungspruefungQuartal: (quartal: string) =>
+		jfetch<{
+			quartal: string;
+			fall_count: number;
+			position_count: number;
+			issue_count: number;
+			error_count: number;
+			faelle: {
+				fall_id: string;
+				patient_id: string;
+				patient_name: string;
+				position_count: number;
+				issue_count: number;
+				error_count: number;
+				warning_count: number;
+				katalog: string[];
+			}[];
+		}>(`/api/rechnungspruefung/quartal/${encodeURIComponent(quartal)}`),
+	rechnungspruefungFall: (fall_id: string) =>
+		jfetch<{
+			fall_id: string;
+			patient: Patient;
+			positions: any[];
+			issues: RuleIssue[];
+			dismissed_issues: RuleIssue[];
+			instance_id: string;
+		}>(`/api/rechnungspruefung/fall/${encodeURIComponent(fall_id)}`),
+	rechnungspruefungDismiss: (fall_id: string, rule_id: string, position_ids: string[], note = '') =>
+		jfetch<{ id: string }>(`/api/rechnungspruefung/fall/${encodeURIComponent(fall_id)}/dismiss`, {
+			method: 'POST',
+			body: JSON.stringify({ rule_id, position_ids, note })
+		}),
+	rechnungspruefungMarkReady: (fall_id: string) =>
+		jfetch<{ id: string }>(`/api/rechnungspruefung/fall/${encodeURIComponent(fall_id)}/mark-ready`, {
+			method: 'POST'
+		}),
 
 	listAdminUsers: () =>
 		jfetch<{ id: string; display_name: string; roles: string[] }[]>('/api/admin/users'),

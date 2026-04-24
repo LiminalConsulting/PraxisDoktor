@@ -4,22 +4,23 @@ at a time as real practice needs are confirmed."""
 from __future__ import annotations
 from .registry import ProcessSpec, register
 
-# Tier-2 priority — first new tool to build after intake
 register(ProcessSpec(
     id="rechnungspruefung",
     display_name="Rechnungsprüfung",
     icon="receipt",
     surface="tool",
-    phase="placeholder",
-    roles=["praxisinhaber"],
-    inputs=["file", "text"],
-    outputs=["structured_record", "clipboard"],
+    phase="co_pilot",
+    roles=["praxisinhaber", "mfa_abrechnung", "praxismanager"],
+    inputs=["text", "structured_record"],
+    outputs=["structured_record", "clipboard", "notification"],
     transition_types={
-        "session_started": {"feeds_back": False},
-        "invoice_uploaded": {"feeds_back": False},
-        "field_accepted": {"feeds_back": True},
-        "field_rejected": {"feeds_back": True},
-        "field_corrected": {"feeds_back": True},
+        # Engine-driven workflow: pull positions from MO, run rules, surface
+        # issues, accept/correct/dismiss them per Fall.
+        "fall_reviewed": {"feeds_back": False},
+        "issue_acknowledged": {"feeds_back": True},
+        "issue_corrected": {"feeds_back": True},
+        "issue_dismissed_false_positive": {"feeds_back": True},
+        "fall_marked_ready_for_billing": {"feeds_back": True},
         "undo": {"feeds_back": False},
     },
     sort_order=20,
