@@ -86,6 +86,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path "$stage/python" | Out-Null
           New-Item -ItemType Directory -Force -Path "$stage/pgsql" | Out-Null
           New-Item -ItemType Directory -Force -Path "$stage/nssm" | Out-Null
+          New-Item -ItemType Directory -Force -Path "$stage/cloudflared" | Out-Null
 
           # Copy app code (server + built frontend)
           Copy-Item -Recurse server\app "$stage/app/server/app"
@@ -156,6 +157,27 @@ jobs:
           }
           Write-Host "Found nssm.exe at: $nssmExe"
           Copy-Item $nssmExe "installer/build/stage/nssm/nssm.exe"
+
+      # -----------------------------------------------------------------
+      # 6b. Download cloudflared (Cloudflare Tunnel client)
+      #     Static Windows binary, ~25MB. Bundled and registered as a Windows
+      #     service if a tunnel token is provided at install time.
+      # -----------------------------------------------------------------
+      - name: Download cloudflared
+        shell: pwsh
+        run: |
+          $url = "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe"
+          $ok = $false
+          for ($i = 0; $i -lt 3; $i++) {
+            try {
+              Invoke-WebRequest -Uri $url -OutFile "installer/build/stage/cloudflared/cloudflared.exe" -TimeoutSec 300
+              $ok = $true; break
+            } catch {
+              Write-Warning "attempt $($i+1) failed: $_"
+              Start-Sleep -Seconds 5
+            }
+          }
+          if (-not $ok) { throw "cloudflared download failed after 3 attempts" }
 
       # -----------------------------------------------------------------
       # 7. Bundle embedded Python + pre-install dependencies
@@ -292,6 +314,32 @@ jobs:
           Write-Host "✓ admin sees $($procs.Count) processes:"
           $procs | ForEach-Object { Write-Host "    - $($_.id) [$($_.surface) / $($_.phase)]" }
           if ($procs.Count -lt 9) { throw "expected at least 9 processes, got $($procs.Count)" }
+
+          # Verify the public-facing flows have been promoted to real co-pilot tools
+          # (no longer dashboard_only — bookings + anamnesis now write into the DB)
+          $termin = $procs | Where-Object { $_.id -eq 'termin_uebersicht' } | Select-Object -First 1
+          $anam   = $procs | Where-Object { $_.id -eq 'anamnesebogen' }    | Select-Object -First 1
+          if ($termin.surface -ne 'tool' -or $termin.phase -ne 'co_pilot') {
+            throw "termin_uebersicht expected tool/co_pilot, got $($termin.surface)/$($termin.phase)"
+          }
+          if ($anam.surface -ne 'tool' -or $anam.phase -ne 'co_pilot') {
+            throw "anamnesebogen expected tool/co_pilot, got $($anam.surface)/$($anam.phase)"
+          }
+          Write-Host "✓ termin_uebersicht + anamnesebogen promoted to co_pilot tools."
+
+          # Public API endpoints respond (with or without a real tunnel token)
+          $publicKeyFile = "C:\Program Files\PraxisDoktor\var\public_api_key.txt"
+          if (Test-Path $publicKeyFile) {
+            $publicKey = (Get-Content $publicKeyFile -Raw).Trim()
+            $body = @{ name = "Smoke Test"; contact = "smoke@example.com"; reason = "ci" } | ConvertTo-Json
+            $book = Invoke-WebRequest -Uri "http://localhost:8080/api/public/booking-request" `
+              -Method POST -Body $body -ContentType "application/json" `
+              -Headers @{ "X-Public-Key" = $publicKey } -UseBasicParsing
+            if ($book.StatusCode -ne 201) { throw "booking-request failed: $($book.StatusCode)" }
+            Write-Host "✓ /api/public/booking-request accepted a submission."
+          } else {
+            Write-Warning "public_api_key.txt not found — skipping public API probe."
+          }
 
           # Frontend served on the same port?
           $front = Invoke-WebRequest -Uri "http://localhost:8080/" -UseBasicParsing

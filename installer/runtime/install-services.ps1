@@ -20,6 +20,8 @@ $AppDataDir  = Join-Path $InstallRoot "var\data"
 $pgctl       = Join-Path $PgRoot "bin\pg_ctl.exe"
 $pgPostgres  = Join-Path $PgRoot "bin\postgres.exe"
 $ollamaExe   = "$env:LOCALAPPDATA\Programs\Ollama\ollama.exe"
+$CloudflaredExe = Join-Path $InstallRoot "cloudflared\cloudflared.exe"
+$TunnelTokenFile = Join-Path $InstallRoot "var\cloudflared.token"
 
 New-Item -ItemType Directory -Force -Path $LogDir, $AudioDir, $AppDataDir | Out-Null
 
@@ -77,6 +79,21 @@ Install-Service -Name "PraxisDoktor-App" `
 	}
 & $Nssm set "PraxisDoktor-App" AppDirectory $ServerDir
 
+# 4. Cloudflare Tunnel — only if a token file exists (skipped on dev/CI without one)
+if ((Test-Path $CloudflaredExe) -and (Test-Path $TunnelTokenFile)) {
+	$token = (Get-Content $TunnelTokenFile -Raw).Trim()
+	if ($token) {
+		Write-Host "→ Service: PraxisDoktor-Tunnel"
+		Install-Service -Name "PraxisDoktor-Tunnel" `
+			-Exe $CloudflaredExe `
+			-Args "tunnel --no-autoupdate run --token $token"
+	} else {
+		Write-Host "  (Tunnel-Token leer — überspringe Cloudflare-Tunnel-Service.)"
+	}
+} else {
+	Write-Host "  (Kein Cloudflare-Tunnel konfiguriert — öffentliche Website-Anbindung deaktiviert.)"
+}
+
 # Start them in dependency order
 Write-Host "→ Starte Dienste…"
 Start-Service "PraxisDoktor-Postgres"
@@ -86,7 +103,13 @@ if (Get-Service "PraxisDoktor-Ollama" -ErrorAction SilentlyContinue) {
 	Start-Sleep -Seconds 2
 }
 Start-Service "PraxisDoktor-App"
+if (Get-Service "PraxisDoktor-Tunnel" -ErrorAction SilentlyContinue) {
+	Start-Service "PraxisDoktor-Tunnel"
+}
 
 Write-Host "✓ Dienste registriert und gestartet."
 Write-Host ""
 Write-Host "PraxisDoktor läuft unter http://localhost:8080"
+if (Get-Service "PraxisDoktor-Tunnel" -ErrorAction SilentlyContinue) {
+	Write-Host "Öffentliche Website ist über den Cloudflare-Tunnel verbunden."
+}

@@ -77,7 +77,14 @@ Filename: "powershell.exe"; \
 	StatusMsg: "App-Initialisierung läuft (kann mehrere Minuten dauern, lädt KI-Modell)…"; \
 	Flags: runhidden
 
-; Register and start NSSM services
+; Persist Cloudflare Tunnel token (from /TUNNEL_TOKEN= silent flag, env var,
+; or wizard page). Token may be empty — install-services.ps1 will skip the
+; tunnel service in that case.
+Filename: "powershell.exe"; \
+	Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\runtime\init-tunnel.ps1"" -InstallRoot ""{app}"" -Token ""{code:GetTunnelToken}"""; \
+	StatusMsg: "Cloudflare-Tunnel konfigurieren…"; Flags: runhidden
+
+; Register and start NSSM services (incl. tunnel if token is present)
 Filename: "powershell.exe"; \
 	Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\runtime\install-services.ps1"" -InstallRoot ""{app}"""; \
 	StatusMsg: "Dienste registrieren…"; Flags: runhidden
@@ -96,10 +103,61 @@ Filename: "powershell.exe"; \
 Type: filesandordirs; Name: "{app}\var"
 
 [Code]
+var
+  TunnelTokenPage: TInputQueryWizardPage;
+  TunnelTokenFromCmd: String;
+
 function NeedsOllama: Boolean;
 var
   Path: String;
 begin
   Path := ExpandConstant('{localappdata}\Programs\Ollama\ollama.exe');
   Result := not FileExists(Path);
+end;
+
+function GetCommandLineToken: String;
+var
+  i: Integer;
+  Param: String;
+  Prefix: String;
+begin
+  Result := '';
+  Prefix := '/TUNNEL_TOKEN=';
+  for i := 1 to ParamCount do begin
+    Param := ParamStr(i);
+    if Pos(Prefix, Param) = 1 then begin
+      Result := Copy(Param, Length(Prefix) + 1, Length(Param));
+      Exit;
+    end;
+  end;
+end;
+
+procedure InitializeWizard;
+begin
+  TunnelTokenFromCmd := GetCommandLineToken;
+  TunnelTokenPage := CreateInputQueryPage(wpSelectTasks,
+    'Cloudflare-Tunnel',
+    'Verbindung zur öffentlichen Website',
+    'Geben Sie den Tunnel-Token ein, den Sie aus dem Cloudflare-Dashboard ' +
+    'kopiert haben. Falls die Praxis (noch) keine öffentliche Website nutzt, ' +
+    'können Sie dieses Feld leer lassen — die interne App läuft trotzdem.');
+  TunnelTokenPage.Add('Tunnel-Token (optional):', False);
+  if TunnelTokenFromCmd <> '' then
+    TunnelTokenPage.Values[0] := TunnelTokenFromCmd;
+end;
+
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  Result := False;
+  // Skip the prompt page in silent mode: token comes from /TUNNEL_TOKEN= flag.
+  if (PageID = TunnelTokenPage.ID) and WizardSilent then
+    Result := True;
+end;
+
+function GetTunnelToken(Param: String): String;
+begin
+  if WizardSilent then
+    Result := TunnelTokenFromCmd
+  else
+    Result := TunnelTokenPage.Values[0];
 end;
