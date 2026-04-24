@@ -34,7 +34,7 @@
 
 <section class="max-w-2xl mx-auto px-4 md:px-6 py-12 md:py-16">
 	<div class="flex items-center gap-3 mb-3">
-		<Calendar size={28} class="text-fresh-600" />
+		<Calendar size={28} class="text-praxis-700" />
 		<h1 class="text-3xl md:text-4xl font-semibold text-praxis-900">Termin anfragen</h1>
 	</div>
 	<p class="text-ink-700 mb-8">
@@ -43,8 +43,8 @@
 	</p>
 
 	{#if done}
-		<div class="p-6 rounded-xl bg-fresh-300/30 border border-fresh-400 flex gap-3">
-			<CheckCircle2 size={24} class="text-fresh-600 mt-0.5 shrink-0" />
+		<div class="p-6 rounded-xl bg-praxis-50 border border-praxis-200 flex gap-3">
+			<CheckCircle2 size={24} class="text-praxis-700 mt-0.5 shrink-0" />
 			<div>
 				<div class="font-semibold text-praxis-900 mb-1">Vielen Dank!</div>
 				<div class="text-sm text-ink-700">
@@ -117,7 +117,7 @@
 			<button
 				type="submit"
 				disabled={busy}
-				class="w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-md bg-fresh-400 text-praxis-900 font-medium hover:bg-fresh-500 transition disabled:opacity-60"
+				class="w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-md bg-praxis-700 text-white font-medium hover:bg-praxis-800 transition disabled:opacity-60"
 			>
 				{#if busy}<Loader2 size={18} class="animate-spin" />{/if}
 				{busy ? 'Wird gesendet …' : 'Anfrage senden'}

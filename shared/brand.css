@@ -4,7 +4,10 @@
  */
 
 @theme {
-	/* --- Forest greens (internal app, dark accents on public) --- */
+	/* --- Forest greens — single brand color across internal app + public site.
+	 *     David rejected the fresh-green family from the old dr-rug.de site;
+	 *     we stay strictly inside the dark forest palette for visual coherence.
+	 */
 	--color-praxis-50:  #f4f6f5;
 	--color-praxis-100: #eaf0ec;
 	--color-praxis-200: #d3e0d6;
@@ -12,15 +15,9 @@
 	--color-praxis-400: #9bb1a2;
 	--color-praxis-500: #5a7d65;
 	--color-praxis-600: #4a6c54;
-	--color-praxis-700: #3c5a46;   /* primary dark — internal app */
+	--color-praxis-700: #3c5a46;   /* primary dark — internal app + public CTAs */
 	--color-praxis-800: #2f4737;
 	--color-praxis-900: #1f3025;
-
-	/* --- Fresh greens (public hero/accent — distilled from old dr-rug.de) --- */
-	--color-fresh-300: #c5e29a;
-	--color-fresh-400: #a0ce4e;    /* primary fresh — matches practice scrubs */
-	--color-fresh-500: #65bc7b;
-	--color-fresh-600: #54770f;    /* deep accent, high-contrast on light bg */
 
 	/* --- Neutral ink --- */
 	--color-ink-900: #111;

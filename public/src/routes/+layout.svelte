@@ -28,7 +28,7 @@
 					href={item.href}
 					class="px-3 py-2 rounded-md text-sm font-medium transition-colors
 						{item.highlight
-							? 'bg-fresh-400 text-praxis-900 hover:bg-fresh-500'
+							? 'bg-praxis-700 text-white hover:bg-praxis-800'
 							: 'text-ink-700 hover:bg-praxis-50 hover:text-praxis-700'}"
 				>
 					{item.label}
@@ -53,7 +53,7 @@
 					onclick={() => (mobileOpen = false)}
 					class="px-3 py-3 rounded-md text-base font-medium
 						{item.highlight
-							? 'bg-fresh-400 text-praxis-900'
+							? 'bg-praxis-700 text-white'
 							: 'text-ink-700 hover:bg-praxis-50'}"
 				>
 					{item.label}

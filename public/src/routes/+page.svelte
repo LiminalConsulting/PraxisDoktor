@@ -4,10 +4,10 @@
 </script>
 
 <!-- Hero -->
-<section class="relative bg-gradient-to-br from-praxis-50 via-white to-fresh-300/40">
+<section class="relative bg-gradient-to-br from-praxis-50 via-white to-praxis-100">
 	<div class="max-w-6xl mx-auto px-4 md:px-6 py-16 md:py-24 grid md:grid-cols-2 gap-10 items-center">
 		<div>
-			<div class="text-sm font-medium text-fresh-600 mb-3 tracking-wide uppercase">Urologie · Karlsruhe</div>
+			<div class="text-sm font-medium text-praxis-700 mb-3 tracking-wide uppercase">Urologie · Karlsruhe</div>
 			<h1 class="text-3xl md:text-5xl font-semibold leading-tight text-praxis-900">
 				Herzlich Willkommen
 			</h1>
@@ -16,7 +16,7 @@
 				Fruchtbarkeits-Checks in kompetenter, persönlicher Betreuung.
 			</p>
 			<div class="mt-7 flex flex-wrap gap-3">
-				<a href="/booking" class="inline-flex items-center gap-2 px-5 py-3 rounded-md bg-fresh-400 text-praxis-900 font-medium hover:bg-fresh-500 transition">
+				<a href="/booking" class="inline-flex items-center gap-2 px-5 py-3 rounded-md bg-praxis-700 text-white font-medium hover:bg-praxis-800 transition">
 					<Calendar size={18} /> Termin vereinbaren
 				</a>
 				<a href="/leistungen" class="inline-flex items-center gap-2 px-5 py-3 rounded-md bg-white border border-ink-200 text-ink-900 font-medium hover:bg-praxis-50 transition">
@@ -34,23 +34,23 @@
 <!-- Three pillars -->
 <section class="max-w-6xl mx-auto px-4 md:px-6 py-16">
 	<div class="grid gap-6 md:grid-cols-3">
-		<a href="/leistungen" class="group p-6 rounded-xl bg-white border border-ink-200 hover:border-fresh-400 transition">
-			<div class="w-10 h-10 rounded-lg bg-fresh-300 grid place-items-center mb-4 group-hover:bg-fresh-400 transition">
-				<Stethoscope size={20} class="text-praxis-900" />
+		<a href="/leistungen" class="group p-6 rounded-xl bg-white border border-ink-200 hover:border-praxis-300 transition">
+			<div class="w-10 h-10 rounded-lg bg-praxis-100 grid place-items-center mb-4 group-hover:bg-praxis-200 transition">
+				<Stethoscope size={20} class="text-praxis-700" />
 			</div>
 			<div class="font-semibold text-praxis-900 mb-1">Leistungen</div>
 			<div class="text-sm text-ink-700">Vorsorge, Diagnostik, ambulante Eingriffe — alles in einer Praxis.</div>
 		</a>
-		<a href="/team" class="group p-6 rounded-xl bg-white border border-ink-200 hover:border-fresh-400 transition">
-			<div class="w-10 h-10 rounded-lg bg-fresh-300 grid place-items-center mb-4 group-hover:bg-fresh-400 transition">
-				<ClipboardList size={20} class="text-praxis-900" />
+		<a href="/team" class="group p-6 rounded-xl bg-white border border-ink-200 hover:border-praxis-300 transition">
+			<div class="w-10 h-10 rounded-lg bg-praxis-100 grid place-items-center mb-4 group-hover:bg-praxis-200 transition">
+				<ClipboardList size={20} class="text-praxis-700" />
 			</div>
 			<div class="font-semibold text-praxis-900 mb-1">Praxis & Team</div>
 			<div class="text-sm text-ink-700">Zwei Fachärzt:innen, ein eingespieltes Team. Lernen Sie uns kennen.</div>
 		</a>
 		<a href="/booking" class="group p-6 rounded-xl bg-praxis-700 text-white hover:bg-praxis-800 transition">
-			<div class="w-10 h-10 rounded-lg bg-fresh-400 grid place-items-center mb-4">
-				<Calendar size={20} class="text-praxis-900" />
+			<div class="w-10 h-10 rounded-lg bg-praxis-600 grid place-items-center mb-4">
+				<Calendar size={20} class="text-white" />
 			</div>
 			<div class="font-semibold mb-1">Termin online</div>
 			<div class="text-sm text-praxis-100">Direkt anfragen — wir bestätigen am nächsten Werktag.</div>

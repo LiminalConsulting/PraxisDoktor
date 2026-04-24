@@ -13,7 +13,7 @@
 			<div class="p-6 rounded-xl bg-white border border-ink-200">
 				<div class="aspect-[4/3] rounded-lg bg-praxis-100 mb-5"></div>
 				<div class="font-semibold text-praxis-900 text-lg">{d.name}</div>
-				<div class="text-fresh-600 text-sm font-medium mb-3">{d.role}</div>
+				<div class="text-praxis-700 text-sm font-medium mb-3">{d.role}</div>
 				<div class="text-ink-700 text-sm mb-4">{d.bio}</div>
 				<div class="flex flex-wrap gap-2">
 					{#each d.focus as f}

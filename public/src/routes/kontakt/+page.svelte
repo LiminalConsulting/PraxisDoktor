@@ -10,7 +10,7 @@
 	<div class="grid gap-6 md:grid-cols-2">
 		<div class="p-6 rounded-xl bg-white border border-ink-200">
 			<div class="flex items-start gap-3 mb-4">
-				<MapPin size={20} class="text-fresh-600 mt-0.5" />
+				<MapPin size={20} class="text-praxis-700 mt-0.5" />
 				<div>
 					<div class="font-semibold text-praxis-900">Adresse</div>
 					<div class="text-ink-700 text-sm mt-1">
@@ -20,7 +20,7 @@
 				</div>
 			</div>
 			<div class="flex items-start gap-3 mb-4">
-				<Phone size={20} class="text-fresh-600 mt-0.5" />
+				<Phone size={20} class="text-praxis-700 mt-0.5" />
 				<div>
 					<div class="font-semibold text-praxis-900">Telefon</div>
 					<a href="tel:{practice.contact.phone}" class="text-ink-700 text-sm mt-1 block hover:text-praxis-700">
@@ -29,7 +29,7 @@
 				</div>
 			</div>
 			<div class="flex items-start gap-3">
-				<Mail size={20} class="text-fresh-600 mt-0.5" />
+				<Mail size={20} class="text-praxis-700 mt-0.5" />
 				<div>
 					<div class="font-semibold text-praxis-900">E-Mail</div>
 					<a href="mailto:{practice.contact.email}" class="text-ink-700 text-sm mt-1 block hover:text-praxis-700">
@@ -52,7 +52,7 @@
 					</div>
 				{/each}
 			</div>
-			<a href="/booking" class="mt-6 inline-block w-full text-center px-4 py-3 rounded-md bg-fresh-400 text-praxis-900 font-medium hover:bg-fresh-500 transition">
+			<a href="/booking" class="mt-6 inline-block w-full text-center px-4 py-3 rounded-md bg-praxis-700 text-white font-medium hover:bg-praxis-800 transition">
 				Termin online anfragen
 			</a>
 		</div>
