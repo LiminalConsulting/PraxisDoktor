@@ -41,7 +41,8 @@ The initial set of processes the system tracks. Each appears as a card on the da
 | Process ID | Display name | Surface | Phase | Inputs | Outputs |
 |---|---|---|---|---|---|
 | `patient_intake` | Patientenaufnahme | tool | co_pilot | audio, image, text | structured_record, clipboard |
-| `rechnungspruefung` | Rechnungsprüfung | tool | co_pilot (planned) | file, text | structured_record, clipboard |
+| `patientenakte` | Patientenakte | tool | co_pilot (mock adapter) | text | structured_record |
+| `rechnungspruefung` | Rechnungsprüfung | tool | co_pilot | text, structured_record | structured_record, clipboard, notification |
 | `team_chat` | Team-Chat | conversation | co_pilot (live day-1) | text, audio, file | notification |
 | `termin_uebersicht` | Terminverwaltung | tool | co_pilot | text, structured_record (incl. public booking_requested) | structured_record, notification |
 | `anamnesebogen` | Anamnesebögen | tool | co_pilot | text, structured_record, file (incl. public form_submitted) | structured_record, notification |
@@ -54,6 +55,8 @@ The initial set of processes the system tracks. Each appears as a card on the da
 
 **Public-site integration:** `termin_uebersicht` and `anamnesebogen` were promoted from `dashboard_only` to real `co_pilot` tools when the public site (in `public/`) replaced the third-party booking widget (TerMed) and intake form (Infoskop). Submissions from the public site arrive via `/api/public/booking-request` and `/api/public/anamnese-submit` and create new ProcessInstances with initial `booking_requested` / `form_submitted` transitions. Staff act on them from the dashboard with `booking_confirmed` / `form_reviewed` etc. — the existing transition + undo machinery applies unchanged.
 
+**Medical Office integration:** `patientenakte` and `rechnungspruefung` both read through the `app.medical_office.MedicalOfficeAdapter`. The current adapter is `MockAdapter` (31 synthetic patients with intentional issues for the rule engine). When Papa runs `tooling/extract-mo-schema.sh` on the practice server, the resulting JSON maps into `MariaDBAdapter` — at which point `MEDICAL_OFFICE_ADAPTER=mariadb` switches both tools to live data simultaneously. Until then, the AmbiguityBanner in each tool clearly labels mock data + ungrounded record kinds (Fall/Befund/Abrechnung). The `patientenakte` view also includes a "Datenqualität" tab running the integrity checker (`app.medical_office.coherence`) — same source-of-truth, applied across the dataset rather than per-record. The `rechnungspruefung` rule engine ships with **11 rules** (3 universal + 5 GOÄ + 3 EBM) drawn from `docs/billing_rules.md`; every rule is sourced (GOÄ §, BMV-Ä §, KBV reference) and the rule library is the natural extension point as the research brief's deferred items get implemented.
+
 "Decline (initially)" for Krankenkassen-Abrechnung means: we observe and surface state, but do not attempt to automate the actual billing submission. This protects the offer from scope-creep into a regulated process where the cost of error is high and the benefit unclear at this stage.
 
 ## Access Matrix
@@ -63,7 +66,8 @@ Which roles see which processes on their dashboard.
 | Process ↓ / Role → | praxisinhaber | arzt | mfa_empfang | mfa_behandlung | mfa_abrechnung | praxismanager |
 |---|---|---|---|---|---|---|
 | `patient_intake` | ✅ | ✅ | ✅ | ✅ | — | — |
-| `rechnungspruefung` | ✅ | — | — | — | — | — |
+| `patientenakte` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `rechnungspruefung` | ✅ | — | — | — | ✅ | ✅ |
 | `team_chat` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `termin_uebersicht` | ✅ | ✅ | ✅ | ✅ | — | ✅ |
 | `anamnesebogen` | ✅ | ✅ | ✅ | — | — | — |
