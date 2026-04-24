@@ -1,0 +1,8 @@
+# Cloudflare Pages deployment for the public marketing site.
+# Per-client overrides (project name, custom domain) come from tooling/new-client.sh
+# and the per-deploy `wrangler pages deploy` invocation.
+
+name = "praxisdoktor-uro-karlsruhe"
+compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = ".svelte-kit/cloudflare"

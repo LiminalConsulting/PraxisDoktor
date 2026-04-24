@@ -1,0 +1,41 @@
+/* PraxisDoktor — shared brand tokens
+ * Imported by both the public marketing site (public/) and the internal app (web/).
+ * Single source of truth. Edit here, both surfaces update.
+ */
+
+@theme {
+	/* --- Forest greens (internal app, dark accents on public) --- */
+	--color-praxis-50:  #f4f6f5;
+	--color-praxis-100: #eaf0ec;
+	--color-praxis-200: #d3e0d6;
+	--color-praxis-300: #c8d4cb;
+	--color-praxis-400: #9bb1a2;
+	--color-praxis-500: #5a7d65;
+	--color-praxis-600: #4a6c54;
+	--color-praxis-700: #3c5a46;   /* primary dark — internal app */
+	--color-praxis-800: #2f4737;
+	--color-praxis-900: #1f3025;
+
+	/* --- Fresh greens (public hero/accent — distilled from old dr-rug.de) --- */
+	--color-fresh-300: #c5e29a;
+	--color-fresh-400: #a0ce4e;    /* primary fresh — matches practice scrubs */
+	--color-fresh-500: #65bc7b;
+	--color-fresh-600: #54770f;    /* deep accent, high-contrast on light bg */
+
+	/* --- Neutral ink --- */
+	--color-ink-900: #111;
+	--color-ink-700: #303030;
+	--color-ink-500: #6b6b6b;
+	--color-ink-400: #9e9e9e;
+	--color-ink-300: #c8c8c8;
+	--color-ink-200: #e6e6e6;
+	--color-ink-100: #f4f4f4;
+
+	/* --- Semantic --- */
+	--color-warn:  #c98a17;
+	--color-error: #c4302b;
+	--color-ok:    #4a8b54;
+
+	--font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+	--font-display: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
