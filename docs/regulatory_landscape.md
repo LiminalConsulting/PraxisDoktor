@@ -1,8 +1,10 @@
 # Regulatory & Vendor Landscape — Karlsruhe Urology Build
 
-Grounded brief from the dad-conversation of 2026-04-23. Verifies (or corrects) the leads that surfaced and turns them into hard architectural boundaries.
+Grounded brief from the dad-conversations of 2026-04-23 and 2026-04-26. Verifies (or corrects) the leads that surfaced and turns them into hard architectural boundaries.
 
 All claims sourced; ambiguities flagged explicitly.
+
+> **Update 2026-04-26**: §§ 12–17 below contain the additions from the Sunday Briefe-Workflow walkthrough — KIM/eArztbrief-Detail, ePA-Sanktionsregime + Vergütungs-GOPs, Hybrid-DRG/Sanakey corrections, Tumorscout/extrax-Pattern als Marktbestätigung, QM-RL als consulting-modal hook.
 
 ---
 
@@ -279,6 +281,163 @@ Yes, "PVS" in Papa's usage = **Privatärztliche Verrechnungsstelle**. Distinct f
 
 ---
 
+## 12. KIM & eArztbrief — technical detail (added 2026-04-26)
+
+KIM = **S/MIME-verschlüsselte E-Mail über SMTP/POP3, getunnelt durch die TI**. Praxis sieht KIM wie ein lokales Postfach; KIM-Clientmodul + TI-Konnektor (PTV2+) signieren + verschlüsseln transparent. **KAS (KIM Attachment Service)** für große Anhänge.
+
+- **Adressverzeichnis = VZD** (Verzeichnisdienst der TI), LDAP + REST, gematik-betrieben.
+- **Wer darf KIM-Adresse halten:** alle TI-angebundenen LE — Vertragsärzte, Vertragszahnärzte, Krankenhäuser, Apotheken, MVZ, Reha, **Pflegeeinrichtungen (Pflicht ab 1.7.2025)**, **Heilmittelerbringer (Pflicht ab 1.1.2026)**, ÖGD, Hebammen, KK, UVT, Kammern.
+- **Storage:** Inhalte werden im PVS lokal gespeichert (MO-MariaDB); KIM-Fachdienst speichert nur **transient** bis POP3-Abruf — kein zentrales Postfach in der Cloud. → **Wir können KIM-Eingang via DB-Read beobachten ohne KIM-Schicht zu berühren.**
+
+### eArztbrief ist NICHT einfach ein PDF in KIM
+
+- Strukturierte Container-Anlage nach KBV-Profil: **IHE XDM** mit **HL7 CDA Release 2 (Arztbrief Plus / VHitG)**-Body und Metadaten. CDA enthält maschinenlesbare Patient-/Empfänger-Header → empfangende PVS routet automatisch.
+- **PDF-Befundbericht** im KIM-Anhang ≠ abrechnungsfähiger eArztbrief (kein CDA-Header, keine automatische Patientenzuordnung).
+- **Pflicht: qualifizierte HBA-Signatur**. Komfortsignatur bis 250 Sig./Tag mit einer PIN-Eingabe.
+- KBV-Richtlinie eArztbrief Stand 17.05.2024.
+
+### Routing-Mis-Pattern als Coherence-Check
+
+In MO basiert "an welchen Arzt geht die KIM-Nachricht" auf (a) KIM-Zieladresse, (b) CDA-Header BSNR+LANR, (c) implizit Patienten→Behandelarzt. **Bei reinem BSNR-Header ohne LANR landen Befunde häufig bei der falschen Person** (Papa zeigte einen solchen Fall). Realer Pain-Point — Detection ist eine high-value Coherence-Check unsere Software laufen kann, die MO nicht hat.
+
+### §203 + DSGVO bei KIM-Beobachtung
+
+**Auch reine Metadaten-Beobachtung** ("eArztbrief um Zeitpunkt T eingegangen") ist Verarbeitung von Patientendaten besonderer Kategorien — nicht "nur Metadaten". Erfordert:
+- AVV nach Art. 28 DSGVO
+- Schriftliche Verpflichtung nach §203 Abs. 4 StGB
+- Klare Zweckbestimmung im Behandlungskontext
+- Praktisch: nur deutsche Rechenzentren tragbar; eure bereits etablierte Sovereign-Track-Architektur (Pages+Tunnel, keine Cloud-DB für medizinische Inhalte) ist hier die einzig konsistente Antwort.
+
+---
+
+## 13. ePA — Sanktionsregime + Vergütungs-GOPs (added 2026-04-26)
+
+### Pflicht-Timeline
+
+- 15.01.2025: Opt-out-ePA "für alle" in Modellregionen
+- 29.04.2025: bundesweite Ramp-up-Phase
+- **01.10.2025: verpflichtende Nutzung für Vertragsärzte/Psychotherapeuten**
+- **01.01.2026: Sanktionen scharf**: 1 % Honorarkürzung + Halbierung TI-Pauschale (Krankenhäuser Schonfrist bis 01.04.2026)
+
+### Vergütungs-GOPs (extrabudgetär, befristet bis 30.06.2026)
+
+| GOP | Inhalt | Wert | Frequenz |
+|---|---|---|---|
+| **01648** | ePA-Erstbefüllung | 11,34 € (89 P) | **Einmal je Versicherten sektorenübergreifend** — nur wenn noch kein anderer LE Dokumente eingestellt hat |
+| **01647** | ePA — weitere Befüllung im Behandlungsfall | 1,91 € (15 P) | **Einmal je Behandlungsfall**, AP-Kontakt erforderlich. **NICHT pro Dokument** — häufige Fehlannahme. |
+| **01431** | ePA — Befüllung ohne AP-Kontakt | 0,38 € | falls ohne Patient anwesend |
+
+### Befüllpflicht — Carve-outs
+
+**Pflicht** (für Mit-/Folgebehandler relevant): Befundberichte invasiver/operativer/non-invasiver Diagnostik, bildgebende Diagnostik, Laborbefunde, eArztbrief, eMP (MIO Pilot Juli 2026, bundesweit Okt 2026).
+
+**Sensible-Daten-Carve-out (§342 Abs. 1a / §343 Abs. 13 SGB V)** — vor Einstellung **dokumentierte Aufklärung über Widerspruchsrecht** Pflicht. Umfasst: psychische/psychosomatische Erkrankungen, sexuell übertragbare Infektionen (HIV, Lues, Hepatitis B/C), Schwangerschaftsabbrüche. **Schriftliche Einwilligung gesetzlich nicht zwingend** — die *Aufklärung* muss dokumentiert sein. Papa's defensive "schriftliche Einwilligung" geht über das Minimum hinaus, ist aber beweissicherer.
+
+### Architektur-Implikation
+
+- **Lokale Akte bleibt §630f-pflichtig** unverändert — ePA ist Kopie, nicht Ersatz.
+- **Praxis sieht Patient-Widerspruch nicht explizit** — Zugriff scheitert technisch im Aktensystem.
+- **Coherence-Check (high-value)**: "Sensibler Befund hochgeladen, aber Aufklärungs-Dokumentation fehlt im Akten-Eintrag" → AmbiguityBanner-Pattern.
+
+---
+
+## 14. Hybrid-DRG / Sanakey — corrections (added 2026-04-26)
+
+**Wichtige Korrekturen zu vorherigen Annahmen:**
+
+- **Sanakey ist 100% SpiFa-Tochter, NICHT BvDU.** SpiFa = Spitzenverband Fachärztinnen und Fachärzte Deutschlands. BvDU/SpiFa-Mitglieder bekommen ~0,5pp Rabatt. BvDU's eigene Tochter ist **VgURO GmbH**.
+- **Datenformat = §301 SGB V Datensatz** (Krankenhaus-Format, mit Grouper-Output: DRG, Schweregrad). **NICHT KVDT/CON-Datei.** Eine CON-Datei-Route existiert nicht.
+- **Sanakey-Tech**: Webportal-only. 2FA via **Google Authenticator TOTP** — nicht gematik, nicht eHBA, nicht TI. **Kein public REST API**.
+- **Pricing**: 2,08 % brutto / 1,75 % netto vom Honorar. Mid-market vs. Wettbewerbern.
+- **Zertifizierungs-Pflicht**: Nur **Grouper muss InEK-zertifiziert** sein. Submitting software für §301 braucht keine KBV/gematik-Zertifizierung — Hybrid-DRG liegt außerhalb §295/KV. **Meaningful unregulated surface.**
+- **2026 Katalog: 904 OPS-Codes** (von ~22 Eingriffe vorher). Urologie gut vertreten: Ureterstein-Entfernung (5-562.4), Hydrozele (5-611), Hydrocele/Varikozele (5-630.5), Orchidopexie (5-624.4), Hoden/Nebenhoden/Penis-OPs, transurethrale Inzision/Exzision (5-573.20), neu **5-569.x2** (sonstige Op. am Ureter, transurethral). Plain diagnostische Zystoskopie: nicht im Katalog (= normales EBM). TUR-P/TUR-B: cross-checken.
+- **KV-Pfad als Alternative** real: KVWL/KVB/KVBerlin/KVBaWue bieten "Submit Hybrid-DRG via KV" mit Vollmacht.
+- **Wettbewerber zu Sanakey**: Helmsauer (1,49 % brutto, billigster), medicalnetworks (1,73 %), MEDIVERBUND, PVS Südwest. Sanakey ist nicht Marktführer per Preis, aber default für SpiFa-affiliated Fachärzte.
+
+### Architektur-Verdict
+
+Drei Pfade für Auto-Submission:
+1. **Eigene §301-Pipeline mit InEK-Grouper** — sauber, meaningful build (Grouper-Lizenz), umgeht Sanakey-Gebühr komplett.
+2. **RPA gegen Sanakey-Portal mit TOTP-Automation** — fast, **ToS-fragile**.
+3. **Status quo manuell** + Daten *aufbereiten* + Submit-fertig anzeigen, finalsubmit bleibt manuell — die `decline`/`co_pilot`-Phase. Honor Papa's "wäre nicht klug zu automatisieren" als consulting-modal-restraint.
+
+---
+
+## 15. Tumorscout / extrax — die Marktbestätigung (added 2026-04-26)
+
+**Tumorscout GmbH (Berlin, gegr. 2021)** = Web-UI für Krebsregister-Erfassung. **axaris extrax-Plugin** liest **direkt MO-MariaDB read-only, täglich automatisch** — **nicht xDT, nicht KBV-Schnittstelle**. Daten verbleiben lokal.
+
+**Medical Office ist explizit in der extrax-PVS-Liste.** Marktbestätigung dass dieser Pfad ToS-konform und etabliert ist.
+
+**Strategic insight**: axaris/extrax ist der **lebende Beweis** dass direkter DB-Read auf Medical Office ein etabliertes, vom Markt akzeptiertes, vertraglich sauberes Pattern ist. Wir brauchen Sunday's Schema-Dump nicht zu rechtfertigen — wir können auf den axaris-Präzedenzfall verweisen.
+
+**Tumorscout's Geschäftsmodell ist exakt unseres**: lokales Plugin liest PVS, Web-UI orchestriert, Datenexport bleibt beim Arzt. Unterschied: Tumorscout serviced eine extrem spezifische Niche; wir wollen breiter (alle Workflows).
+
+### Krebsregister-Meldepflicht (für die Urologie tagesgeschäftlich)
+
+- **Rechtsbasis**: KFRG, §65c SGB V, **LKrebsRG BW** (gilt seit Okt 2011).
+- **Zuständig für Karlsruhe**: KKR-BW (Krebsregister Baden-Württemberg).
+- **Datenmodell**: **oBDS (onkologischer Basisdatensatz) Version 3.0.0** (XML-Schema, kein FHIR). Organspezifische Module inkl. **Prostata**.
+- **Vergütung BW (ab 01.02.2024)**: Diagnose 19,50 €, Therapie/Verlauf/Tod je 9,00 €, Pathologie 4,50 €. Bundesweit einheitlich. Privat ohne IK: keine Vergütung.
+- **§65c hebt §203 auf** — Meldung gesetzlich erlaubt + gefordert. Patient muss informiert werden (dokumentationspflichtig). Patient kann Meldung **nicht** widersprechen.
+- **Sanktionen**: bis 50.000 € Bußgeld. Praktisch selten, aber Trend zur Durchsetzung (2024/2025 erste Mahnbescheide).
+- **Wettbewerber zu Tumorscout in Urologie-Niche**: **d-uo Tumordokumentations-System** (Berufsverband Deutsche Uro-Onkologen, **für Mitglieder kostenlos**). **→ Bei Papa abklären ob er d-uo-Mitglied ist.**
+
+---
+
+## 16. QM-Richtlinie als consulting-modal Hook (added 2026-04-26)
+
+**Strategischer Frame**: Die "Process-Documentation als Side-Effect"-Capability unseres Systems mappt direkt auf die **§135a SGB V QM-Verpflichtung** die jede Praxis ohnehin hat. Reframing als "wir warten dein digitales QM-Handbuch als Side-Effect des Systems" ist regulatorisch sauber und ein Value-Prop den Inkumbenten nicht haben.
+
+### Rechtsbasis
+
+- **§135a SGB V**: Vertragsärzte / MVZ / Vertragszahnärzte / zugelassene Krankenhäuser sind verpflichtet, einrichtungsintern QM einzuführen.
+- **G-BA QM-Richtlinie** Beschluss 18.01.2024, in Kraft 20.04.2024. Sektorübergreifend (Teil A) + sektorspezifisch (B1 vertragsärztlich, B2 zahnärztlich, B3 KH).
+
+### §3 Grundelemente (5)
+
+Patientenorientierung · Mitarbeiterorientierung · **Prozessorientierung** · Kommunikation+Kooperation · **Informationssicherheit+Datenschutz**
+
+### §4 Methoden+Instrumente (14, alle Mindeststandards)
+
+inkl. **Prozess-/Ablaufbeschreibungen (SOPs)**, **Schnittstellenmanagement**, Checklisten, Risikomanagement, CIRS, Beschwerdemanagement, Patienten-/Mitarbeiterbefragung etc.
+
+### Granularität, Audit, Sanktionen
+
+- **Granularität**: keine Vorgabe. "Einheitlich geregelt, nachvollziehbar, bei Bedarf angepasst." Form frei.
+- **Audit-Pflicht extern**: keine. KV-Stichprobe alle 2J., ~4% der Praxen, **beratend**.
+- **Sanktionen**: praktisch keine. Zulassungsverlust wegen QM-Mängeln nicht dokumentiert. → "QM-Compliance" allein schwaches Verkaufsargument; stark als "ohnehin existierende Pflicht, die wir gratis miterledigen".
+
+### IT-/Datenfluss-Doku
+
+QM-RL fordert IT-Doku **nicht namentlich**, aber **funktional zwingend** über §3 Nr. 5 (Informationssicherheit+Datenschutz) + §3 Nr. 3 (Prozessorientierung) + §4 Schnittstellenmanagement. Standard-QM-Handbücher behandeln patientenbezogene Datenflüsse als selbstverständlich dokumentationspflichtig.
+
+### QM-Software-Markt
+
+Existiert (QEP-Manager, roXtra, QM-Assist, CGM-Module) aber **alle sind statische Doku-Verwaltung** (Vorlagen + Versionierung). Keiner generiert QM-Doku als Nebenprodukt eines aktiven Praxis-Tools. **→ Unsere Differenzierung.**
+
+---
+
+## 17. Process-Inventory-Konsequenzen (added 2026-04-26)
+
+Aus den 5 neuen Recherchen + Transcript:
+
+| Existing | Action |
+|---|---|
+| `email_triage` (placeholder) | **Retire.** Replace with `aufgaben_persoenlich` + `aufgaben_team` (mehr genau die observierten MO-Strukturen). |
+| `materialverwaltung` (placeholder) | Untouched — defer. |
+| `krankenkassen_abrechnung` (decline) | Confirmed. Stays. Document `hybrid_drg_abrechnung` parallel — separate process, also `decline` für Submit. |
+| `patientenakte` (co_pilot, mock) | Schema-Erweiterung: KV-Fall-Status, Schablonen-Verknüpfung, ePA-Upload-Marker, KIM-Eingang-Marker. |
+| `rechnungspruefung` | Bereits erweitert (ebm.py + 5 GOPs + 2 neue Rules: kim_quartal_cap, abolished_gops). |
+| **Add new**: `briefe_arzt` | The outgoing Briefe-Workflow as ein eigener Process. Surface=tool, phase=co_pilot wenn gebaut. |
+| **Add new**: `aufgaben_persoenlich`, `aufgaben_team` | Die observierten To-Do-Listen-Strukturen. |
+| **Add new**: `krebsregister_meldung` | Wenn Papa nicht d-uo-Mitglied ist. |
+| **Add new**: `hybrid_drg_abrechnung` | dashboard_only initial; phase=decline für Submit. |
+
+Sunday's `extract-mo-schema.sh` muss explizit Schablonen + Ziffer-Vorschlag-Config-Tabellen mit erfassen, nicht nur Patientendaten — weil dort die Praxis-spezifische Abrechnungs-IP liegt.
+
+---
+
 ## Sources
 
 ### Regulatory
@@ -298,6 +457,63 @@ Yes, "PVS" in Papa's usage = **Privatärztliche Verrechnungsstelle**. Distinct f
 - [European Commission — MDCG 2019-11 Rev.1 (June 2025)](https://health.ec.europa.eu/latest-updates/update-mdcg-2019-11-rev1-qualification-and-classification-software-regulation-eu-2017745-and-2025-06-17_en)
 - [Bundesärztekammer — GOÄ-Novellierung](https://www.bundesaerztekammer.de/themen/aerzte/honorar/goae-novellierung)
 - [Deutsches Ärzteblatt — § 203 StGB Verschwiegenheitspflicht externe Dienstleister](https://www.aerzteblatt.de/archiv/204240/Verschwiegenheitspflicht-Gesetzgeber-regelt-Einbindung-externer-Dienstleister)
+
+### Added 2026-04-26 — KIM/eArztbrief
+- [gematik KIM Übersicht](https://www.gematik.de/anwendungen/kim)
+- [KBV Richtlinie eArztbrief 17.05.2024 (PDF)](https://www.kbv.de/documents/infothek/rechtsquellen/weitere-vertraege/praxen/telemedizin/rl-earztbrief.pdf)
+- [HL7 Deutschland Arztbrief Plus / CDA](https://wiki.hl7.de/index.php?title=IG:Arztbrief_Plus)
+- [KV Hessen — eArztbrief, Porto, Faxe abrechnen](https://www.kvhessen.de/abrechnung-ebm/earztbrief-porto-und-faxe-abrechnen)
+- [IWW — Wegfall GOP 01660 zum 30.06.2023](https://www.iww.de/aaa/kassenabrechnung/elektronischer-arztbrief-weggefallen-mit-dem-30062023-ebm-nr-01660-fuer-earztbriefe-f155239)
+- [§ 630f BGB Dokumentation](https://www.gesetze-im-internet.de/bgb/__630f.html)
+- [Bitkom Muster §203 StGB Verpflichtung (PDF)](https://www.bitkom.org/sites/main/files/file/import/20180718-Muster-203StGB-final.pdf)
+
+### Added 2026-04-26 — ePA
+- [§ 342 SGB V](https://www.gesetze-im-internet.de/sgb_5/__342.html)
+- [AOK — Sanktionen Nicht-Nutzung ePA 2026](https://www.aok.de/gp/news-allgemein/newsdetail/sanktionen-nicht-nutzung-epa-2026)
+- [BMG — Elektronische Patientenakte für alle](https://www.bundesgesundheitsministerium.de/epa-na-sicher/)
+- [KBV PraxisNachricht 27.11.2025 — ePA-Erstbefüllung weiter ~11 €](https://www.kbv.de/praxis/tools-und-services/praxisnachrichten/2025/11-27/ab-januar-weiterhin-mehr-als-elf-euro-fuer-epa-erstbefuellung)
+- [KV Hessen — ePA-Leistungen abrechnen (01647/01648)](https://www.kvhessen.de/abrechnung-ebm/epa-abrechnen)
+- [KBV — welche Dokumente in die ePA](https://www.kbv.de/praxis/tools-und-services/praxisnachrichten/2025/07-31/neue-serie-alles-nur-eine-frage-welche-dokumente-stellen-praxen-in-die-epa-ein)
+- [KBV — ePA-Rechtsfragen Praxisinfo Spezial (PDF)](https://www.kbv.de/documents/infothek/publikationen/praxisinfo/praxisinfospezial-epa-rechtsfragen.pdf)
+- [BfDI — Widerspruch gegen die ePA](https://www.bfdi.bund.de/DE/Buerger/Inhalte/GesundheitSoziales/eHealth/WiderspruchgegendieePA.html)
+- [gematik Fachportal — Schlüsselgenerierungsdienst ePA](https://fachportal.gematik.de/telematikinfrastruktur/komponenten-dienste/schluesselgenerierungsdienst-epa)
+
+### Added 2026-04-26 — Hybrid-DRG / Sanakey
+- [GKV-SV — Hybrid-DRG §115f](https://www.gkv-spitzenverband.de/krankenversicherung/ambulant_stationaere_versorgung/hybrid_drg_115f/hybrid_drg.jsp)
+- [Hybrid-DRG-Katalog 2026](https://www.hybrid-drg-katalog.de/katalog/aktueller-hybrid-drgkatalog-2026.html)
+- [InEK 2026 OPS-Anlage (PDF, kaysers-consilium)](https://kaysers-consilium.de/wp-content/uploads/2025/11/Die-endgueltige-OPS-Liste-ergBA.pdf)
+- [BVOU — Übersicht Abrechnungsdienstleister Hybrid-DRG](https://www.bvou.net/uebersicht-abrechnungsdienstleister-hybrid-drg-3/)
+- [Sanakey-Portal FAQ (2FA via Google Authenticator)](https://www.sanakey.de/sanakey-portal-info/faq/)
+- [BVOU Partner Sanakey Contract GmbH](https://www.bvou.net/partner/sanakey-contract-gmbh/)
+- [GKV-SV §301 SGB V Datenaustausch](https://www.gkv-spitzenverband.de/krankenversicherung/krankenhaeuser/krankenhaeuser_abrechnung/krankenhaeuser_abrechnung_datenaustausch_dta/datenaustausch_dta.jsp)
+- [KVWL — Hybrid-DRG (KV-Pfad)](https://www.kvwl.de/hybrid-drg)
+
+### Added 2026-04-26 — Krebsregister / Tumorscout
+- [§65c SGB V](https://www.gesetze-im-internet.de/sgb_5/__65c.html)
+- [LKrebsRG BW (Landesrecht BW)](https://www.landesrecht-bw.de/jportal/?quelle=jlink&query=KrebsRegG+BW)
+- [KKR-BW Meldevergütung](https://krebsregister-bw.de/meldende/meldeverguetung/)
+- [GEKID/ADT Basisdatensatz oBDS](https://www.gekid.de/adt-gekid-basisdatensatz)
+- [KKR-MV oBDS-XML 3.0.0](https://www.kkr-mv.de/das-neue-adt-gekid-xml-schema-version-3-0-0/)
+- [Tumorscout](https://tumorscout.de/die-software-fuer-krebsregistermeldung-in-deutschland/)
+- [axaris extrax — Tumorscout Success Story (PDF)](https://www.axaris.de/wp-content/uploads/success_story_extrax_tumorscout.pdf)
+- [Tumorscout — Krebsregister Mahnbescheide (Mai 2025)](https://tumorscout.de/2025/05/16/krebsregister-mahnbescheide-was-aerzte-jetzt-zur-meldepflicht-wissen-muessen/)
+- [d-uo Tumordokumentations-System (Konkurrent in Urologie-Niche)](https://d-uo.de/tumordokumentations-system/)
+
+### Added 2026-04-26 — QM-Richtlinie
+- [§ 135a SGB V](https://www.gesetze-im-internet.de/sgb_5/__135a.html)
+- [G-BA QM-Richtlinie Übersicht](https://www.g-ba.de/richtlinien/87/)
+- [G-BA QM-RL Volltext PDF (in Kraft 20.04.2024)](https://www.g-ba.de/downloads/62-492-3427/QM-RL_2024-01-18_iK-2024-04-20.pdf)
+- [KBV PraxisWissen QM (PDF)](https://www.kbv.de/documents/infothek/publikationen/praxiswissen/praxiswissen-qualitaetsmanagement.pdf)
+- [systemhaus.com — QM-Software Vergleich 2025](https://systemhaus.com/qualitaetsmanagement-arztpraxis)
+
+### Added 2026-04-26 — EBM/GOÄ Brief-Ziffern
+- [reimbursement.info — EBM 01601 Individueller Arztbrief](https://app.reimbursement.info/gops/01601)
+- [monkeymed — EBM 33042 Abdomen-Sonographie](https://monkeymed.de/leistungskataloge/ebm/33042)
+- [monkeymed — EBM 33043 Uro-Genital-Sonographie](https://monkeymed.de/leistungskataloge/ebm/33043)
+- [KVSH — EBM-Reform Urologie Top-Leistungen (PDF)](https://www.kvsh.de/fileadmin/user_upload/dokumente/Praxis/Abrechnung_und_Honorar/Abrechnung/EBM_2020/Urologie.pdf)
+- [Virchowbund — GOÄ Sonografie Abrechnung](https://www.virchowbund.de/praxisaerzte-blog/goae-sonographie-abrechnung-ultraschall)
+- [PVS Südwest Blog — GOÄ Steigerungsfaktor Begründung](https://blog.pvs-suedwest.de/blog/goae-steigerungsfaktor)
+- [BVOU — GOÄ-Entwurf 2026 Status](https://www.bvou.net/neuer-goae-entwurf-aktueller-stand-und-engagement-des-bvou/)
 - [activeMind AG — Auftragsverarbeitung für Berufsgeheimnisträger](https://www.activemind.de/magazin/dsgvo-berufsgeheimnistraeger-auftragsverarbeitung/)
 - [Kleiboldt — § 203 StGB und Cloud-KI in der Arztpraxis](https://kleiboldt.de/blog/203-stgb-cloud-ki/)
 

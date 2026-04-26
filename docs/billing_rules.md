@@ -10,6 +10,46 @@ Source for what `server/app/billing_rules/` implements.
 
 ---
 
+## Update 2026-04-26 — Brief / KIM / ePA Strukturpauschalen
+
+Following the dad-conversation walkthrough on 2026-04-26, the canonical Brief/KIM/ePA Strukturpauschalen were grounded against KBV / KV Hessen / IWW sources. Headlines:
+
+- **GOP 01660 (Förderzuschlag eArztbrief)** is **abolished since 30.06.2023.** Old PVS templates that still emit it cause routine KV-Streichung. Now caught by `ebm.abolished_gops` rule.
+- **eArztbrief-Versand/Empfang über KIM**: GOP **86900** (0,28 € versendet) + GOP **86901** (0,27 € empfangen). **Quartals-Cap 23,40 € pro Arzt** (gemeinsam für 86900 + 86901). Now caught by `ebm.kim_quartal_cap` rule.
+- **Brief-Erstellung** als inhaltliche Leistung (unabhängig vom Versandweg) = **GOP 01601** (~7,72 €). Nicht neben Versicherten-/Grund-/Konsiliarpauschale ohne Ausnahmetatbestand (Ausnahme: 01436).
+- **ePA-Erstbefüllung** = **GOP 01648** (11,34 € / 89 P, einmal je Versicherten **sektorenübergreifend**, extrabudgetär bis 30.06.2026).
+- **ePA-Folge-Befüllung im Behandlungsfall** mit AP-Kontakt = **GOP 01647** (1,91 € / 15 P, **einmal je Behandlungsfall** — *nicht* pro Dokument; häufige Fehlannahme).
+- **ePA-Befüllung ohne AP-Kontakt** = **GOP 01431** (0,38 €).
+- **Sonografie**: Urogenitalsystem **33043** (~83 P / 10,57 €), Abdomen **33042** (~163 P / 20,77 €, max. 2× / Fall), GOÄ-Pendant 410 (1. Organ) + 420 (max. 3× pro Sitzung).
+- **Urethro(zysto)skopie**: Mann **26310** (750 P / ~95,55 €), Frau **26311** (284 P / ~36,18 €). Wichtig: **vorherige Tabelle hatte 26310 falsch gelabelt** ("Versichertenkonsultation") — korrigiert.
+- **Telekonsil ≠ eArztbrief**: GOP **01670** (Anforderung) + **01671** (Beurteilung) sind ein anderer Workflow. Häufige Verwechslung.
+
+### Brief-Workflow Billing Chain (canonical)
+
+Wenn Vertragsarzt einen Patienten mit Überweisung sieht, Befund erhebt, eArztbrief via KIM an den Hausarzt schickt UND Befundbericht in die ePA hochlädt, sollten in einem Workflow feuern:
+
+1. **26211 oder 26212** — Grundpauschale Urologie (altersabhängig) — einmal pro Behandlungsfall
+2. **01601** — Individueller Arztbrief (mit Ausnahmetatbestand wenn neben Grundpauschale)
+3. **86900** — KIM-Versand (0,28 €, im Cap)
+4. **01647** (oder **01648** bei Erstbefüllung) — ePA-Befüllung
+5. ggf. fachärztliche Diagnostik-Ziffer (z.B. **33043** Sonografie Urogenital, **26310/26311** Zystoskopie)
+
+**Nicht mehr ansetzen**: 01660 (weggefallen), 40110 (kein Papier-Porto bei eArztbrief).
+
+### GOÄ-Reform 2026 — Status (April 2026)
+
+Neue GOÄ ist *noch nicht* verabschiedet, aber sehr nah dran:
+- Bundesärztetag 29.05.2025 hat Entwurf mit 212:19:8 beschlossen
+- BÄK-Entwurf seit Januar 2026 öffentlich
+- BMG: Verordnungsentwurf bis Mitte 2026 angekündigt
+- Bundesratsbefassung H2 2026 (kritisch wegen Beihilfekosten der Länder)
+- **Realistischer Inkrafttretens-Termin: 2027**
+- "eGOÄ" = elektronische Form, eng gekoppelt an neue GOÄ-Struktur (Komplexpositionen statt Einzelleistungs-Bündelung)
+
+→ Architektur: aktuell nach alter GOÄ (Stand 1996, mit Anpassungen) modellieren, aber `goae_version` Feld im Schema vorsehen.
+
+---
+
 ## Encodable now (no Hersteller key)
 
 ### EBM rules

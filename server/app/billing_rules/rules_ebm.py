@@ -79,10 +79,60 @@ _GOP_CONSTRAINTS: dict[str, GOPConstraint] = {
         source="EBM Kap. III.b 26",
     ),
     "26310": GOPConstraint(
-        code="26310", label="Urologische Pauschale (Versichertenkonsultation)",
-        fachgruppe="26", max_per_behandlungsfall=1,
-        source="EBM Kap. III.b 26",
+        code="26310", label="Urethro(zysto)skopie Mann",
+        sex="M", fachgruppe="26", max_per_behandlungsfall=1,
+        source="EBM Kap. III.b 26.3 (KVSH/KVWL urology summary)",
     ),
+    "26311": GOPConstraint(
+        code="26311", label="Urethro(zysto)skopie Frau",
+        sex="W", fachgruppe="26", max_per_behandlungsfall=1,
+        source="EBM 26311 (KBV)",
+    ),
+
+    # --- Sonografie (general; not Fachgruppe-restricted) ---
+    "33042": GOPConstraint(
+        code="33042", label="Sonografie Abdomen (1+ Organe)",
+        max_per_behandlungsfall=2,
+        source="EBM 33042 (monkeymed.de)",
+    ),
+    "33043": GOPConstraint(
+        code="33043", label="Sonografie Urogenitalsystem",
+        max_per_behandlungsfall=1,
+        source="EBM 33043; KV Berlin Ausschlüsse pn231218-3",
+    ),
+
+    # --- Brief-Workflow (Erstellung + KIM-Versand/Empfang) ---
+    "01601": GOPConstraint(
+        code="01601", label="Individueller Arztbrief",
+        source="EBM 01601 (reimbursement.info)",
+    ),
+    "86900": GOPConstraint(
+        code="86900", label="Versandpauschale eArztbrief via KIM",
+        source="EBM 86900; KV Hessen — Quartals-Cap 23,40 € / Arzt zusammen mit 86901",
+    ),
+    "86901": GOPConstraint(
+        code="86901", label="Empfangspauschale eArztbrief via KIM",
+        source="EBM 86901; KV Hessen — Quartals-Cap 23,40 € / Arzt zusammen mit 86900",
+    ),
+
+    # --- ePA-Befüllung (extrabudgetär bis 30.06.2026) ---
+    "01647": GOPConstraint(
+        code="01647", label="ePA — weitere Befüllung im Behandlungsfall (mit AP-Kontakt)",
+        max_per_behandlungsfall=1,
+        source="EBM 01647 (KV Hessen ePA abrechnen) — 1,91 € / 15 P",
+    ),
+    "01648": GOPConstraint(
+        code="01648", label="ePA-Erstbefüllung (sektorenübergreifend einmalig)",
+        source="EBM 01648 (KBV PraxisNachricht 2025-11-27) — 11,34 € / 89 P, befristet bis 30.06.2026",
+    ),
+    "01431": GOPConstraint(
+        code="01431", label="ePA — Befüllung ohne AP-Kontakt",
+        source="EBM 01431 (KV Hessen)",
+    ),
+
+    # --- Wegfallene GOP — sentinel for legacy templates ---
+    # GOP 01660 (Förderzuschlag eArztbrief) WEGGEFALLEN 30.06.2023.
+    # Not added as a constraint; instead, see legacy_codes_check below.
 
     # --- Telekonsultation / Bereitschaft (general) ---
     "01434": GOPConstraint(
@@ -270,6 +320,76 @@ def _ow_calc_sanity(
     return out
 
 
+# ---------------------------------------------------------------------------
+# KIM Strukturpauschalen: 86900 + 86901 zusammen gedeckelt 23,40 € / Quartal /
+# Arzt. Without per-Arzt attribution we still catch egregious overruns within
+# the position set passed in.
+# ---------------------------------------------------------------------------
+_KIM_QUARTAL_CAP_EUR = 23.40
+
+def _kim_quartal_cap(
+    positions: list[AbrechnungPosition], patient: Patient
+) -> list[RuleIssue]:
+    by_q: dict[str, list[AbrechnungPosition]] = {}
+    for p in positions:
+        if p.katalog != "EBM" or p.code not in ("86900", "86901"):
+            continue
+        q = _quartal_of(p.leistungsdatum)
+        if q is None:
+            continue
+        by_q.setdefault(q, []).append(p)
+
+    out: list[RuleIssue] = []
+    for q, group in by_q.items():
+        total = sum((p.betrag_eur or 0.0) for p in group)
+        if total > _KIM_QUARTAL_CAP_EUR + 0.001:
+            out.append(RuleIssue(
+                severity="warning",
+                rule_id="ebm.kim_quartal_cap",
+                rule_name="KIM-Strukturpauschalen Quartals-Cap überschritten",
+                position_ids=[p.id for p in group],
+                message=(
+                    f"86900 + 86901 im {q}: {total:.2f} € — Höchstwert "
+                    f"{_KIM_QUARTAL_CAP_EUR:.2f} € pro Arzt/Quartal."
+                ),
+                suggestion="Im Per-Arzt-Kontext prüfen: gilt der Cap pro LANR.",
+                source="KV Hessen: eArztbrief, Porto, Faxe abrechnen",
+            ))
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Legacy / abolished GOPs — sentinel check.
+# 01660 (Förderzuschlag eArztbrief) abolished 30.06.2023; many PVS templates
+# still emit it. Caught early before KV streichung.
+# ---------------------------------------------------------------------------
+_ABOLISHED_GOPS: dict[str, str] = {
+    "01660": (
+        "GOP 01660 (Förderzuschlag eArztbrief) ist seit 30.06.2023 weggefallen. "
+        "Stattdessen 01601 (Brief-Erstellung) + 86900 (KIM-Versand) ansetzen."
+    ),
+}
+
+def _abolished_gops(
+    positions: list[AbrechnungPosition], patient: Patient
+) -> list[RuleIssue]:
+    out: list[RuleIssue] = []
+    for p in positions:
+        if p.katalog != "EBM":
+            continue
+        msg = _ABOLISHED_GOPS.get(p.code)
+        if msg:
+            out.append(RuleIssue(
+                severity="error",
+                rule_id="ebm.abolished_gop",
+                rule_name="Weggefallene GOP",
+                position_ids=[p.id],
+                message=msg,
+                source="IWW: 01660 weggefallen 30.06.2023",
+            ))
+    return out
+
+
 RULES: list[Rule] = [
     Rule(id="ebm.age_gender_restrictions",
          name="Alters- und Geschlechtsbeschränkungen",
@@ -283,4 +403,12 @@ RULES: list[Rule] = [
          name="Bewertung × Orientierungswert",
          catalog="EBM", fn=_ow_calc_sanity,
          source="EBA-Beschluss"),
+    Rule(id="ebm.kim_quartal_cap",
+         name="KIM-Strukturpauschalen Quartals-Cap (86900+86901)",
+         catalog="EBM", fn=_kim_quartal_cap,
+         source="KV Hessen eArztbrief"),
+    Rule(id="ebm.abolished_gops",
+         name="Weggefallene GOPs (01660 etc.)",
+         catalog="EBM", fn=_abolished_gops,
+         source="IWW 30.06.2023"),
 ]
