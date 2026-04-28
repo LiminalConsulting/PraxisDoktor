@@ -1,6 +1,21 @@
 # Handoff — current state + what only David can do
 
-> Status as of 2026-04-24:
+> Status as of 2026-04-28:
+> - **Stream A complete (2026-04-26)** — Sunday Briefe-Workflow walkthrough
+>   transcript extracted + grounded across 6 canonical research streams
+>   (KIM/eArztbrief, ePA, Hybrid-DRG/Sanakey, Krebsregister/Tumorscout,
+>   QM-Richtlinie, EBM/GOÄ Brief-Ziffern). See `docs/transcript_2026-04-26.md`,
+>   `docs/processes_observed.md`, `docs/regulatory_landscape.md` §§ 12–17.
+> - **Billing rules updated** — GOP 26310 typo fixed, 8 new GOPs added
+>   (26311, 33042, 33043, 01601, 86900, 86901, 01647, 01648, 01431),
+>   2 new rule functions (`kim_quartal_cap` for the 23,40 €/Q cap;
+>   `abolished_gops` flagging GOP 01660 since 30.06.2023).
+> - **Cloudflare RDP tunnel provisioned (2026-04-28)** — separate from the
+>   public-API tunnel. Token in `tooling/clients/uro-karlsruhe/cloudflare-rdp.env`
+>   (gitignored). DNS CNAME + Access policy still need manual creation; see
+>   `docs/remote_access.md` for the on-site checklist.
+>
+> Status as of 2026-04-24 (still current):
 > - **Public site live** at https://praxisdoktor-uro-karlsruhe.pages.dev/
 >   (Cloudflare Pages; brand-coherent dark-forest palette; mobile-first)
 > - **Cloudflare:** Pages project + Tunnel + ingress config provisioned in
@@ -12,7 +27,7 @@
 > - **Internal app: 5 real co_pilot tools wired** — patient_intake (live
 >   from v1), termin_uebersicht (booking ingest), anamnesebogen (form
 >   ingest), patientenakte (read-only MO mirror via mock adapter),
->   rechnungspruefung (Plausibilitätsprüfung engine, 11 sourced rules).
+>   rechnungspruefung (Plausibilitätsprüfung engine, now 13 sourced rules).
 
 This document captures only the items that genuinely require your hands
 or your accounts. Everything else is automated, documented, or in a state
@@ -82,6 +97,40 @@ the PVS-Verrechnungsstelle send back, which rules from `docs/billing_rules.md`
 "blocked on data extension" tier matter most. The rule engine architecture
 in `server/app/billing_rules/` is built for adding rules cheaply — the
 session output becomes new `rules_*.py` modules.
+
+### 2d. Set up Cloudflare RDP tunnel (the new "always reachable" path)
+
+Goal: enable David to drive the practice server's Windows desktop from his
+Mac, anywhere in the world. Replaces the OpenVPN approach (which made David
+a tenant of Papa's IT-guy's infrastructure).
+
+**Cloudflare side already provisioned (2026-04-28)** — tunnel
+`praxisdoktor-uro-karlsruhe-rdp` (ID `5a1abd8a-2ba5-4f3e-a366-c0c043c001cc`)
+with ingress `rdp-uro-karlsruhe.liminality.space` → `rdp://localhost:3389`.
+Token in `tooling/clients/uro-karlsruhe/cloudflare-rdp.env`.
+
+**Two manual Cloudflare-dashboard steps still needed** (wrangler OAuth lacks
+the necessary scopes):
+
+1. **DNS CNAME**: dash.cloudflare.com → liminality.space → DNS → Records
+   → Add CNAME · Name `rdp-uro-karlsruhe` · Target
+   `5a1abd8a-2ba5-4f3e-a366-c0c043c001cc.cfargotunnel.com` · Proxied (orange)
+2. **Cloudflare Access policy**: one.dash.cloudflare.com → Access →
+   Applications → Add → Self-hosted · domain `rdp-uro-karlsruhe.liminality.space`
+   · Policy "Allow" with email `david.rug98@icloud.com`
+
+**Then on-site at Papa's home (or RDP'd into the practice server)**:
+
+1. Download cloudflared.exe (PowerShell, see `docs/remote_access.md` §"Windows side")
+2. `cloudflared.exe service install <TUNNEL_TOKEN>` — token from cloudflare-rdp.env
+3. Verify `Get-Service cloudflared` is running
+4. Create `david-consult` Windows local admin user (separate from Papa's account)
+   — full PowerShell commands in `docs/remote_access.md`
+5. Test from Mac: `cloudflared access rdp --hostname rdp-uro-karlsruhe.liminality.space --url localhost:23389` then Windows App → `localhost:23389`
+
+After this works once: David can log into the practice server from anywhere
+without coordinating with Papa or the IT-guy. Same pattern then rolls out to
+client #2 (Barbara) via per-client convention documented in remote_access.md.
 
 ---
 
