@@ -39,7 +39,7 @@ if [[ -z "$SLUG" || -z "$DOMAIN" ]]; then
 fi
 
 # --- Config ---
-DAVID_EMAIL="david.rug98@icloud.com"
+DAVID_EMAIL="consulting@liminality.space"
 TUNNEL_NAME="praxisdoktor-${SLUG}-rdp"
 RDP_HOSTNAME="rdp-${SLUG}.${DOMAIN}"
 TOKEN_FILE="${CF_TOKEN_FILE:-$HOME/.config/liminality/cf-api-token}"
@@ -230,7 +230,7 @@ EXISTING_POLICY=$(api GET "/accounts/$ACCOUNT_ID/access/apps/$APP_ID/policies" \
 import sys, json
 r = json.load(sys.stdin)
 for p in r.get('result', []):
-    if p.get('name') == 'David only':
+    if p.get('name') == 'Liminal Consulting only':
         print(p['id'])
         break
 ")
@@ -240,7 +240,7 @@ if [[ -n "$EXISTING_POLICY" ]]; then
 else
 	RESP=$(api POST "/accounts/$ACCOUNT_ID/access/apps/$APP_ID/policies" \
 		--data "{
-  \"name\": \"David only\",
+  \"name\": \"Liminal Consulting only\",
   \"decision\": \"allow\",
   \"include\": [{\"email\": {\"email\": \"$DAVID_EMAIL\"}}],
   \"require\": [],

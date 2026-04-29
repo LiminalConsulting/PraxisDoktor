@@ -96,9 +96,9 @@ curl -sS -X PUT -H "Authorization: Bearer $CF_TOKEN" -H "Content-Type: applicati
 - **Destinations → Public hostnames**: subdomain `rdp-<slug>`, domain `liminality.space`
 - **Allow browser-based RDP/SSH/VNC**: leave **OFF** (you're using native Windows App, not browser-based)
 - **Add policy**:
-  - Policy name: `David only`
+  - Policy name: `Liminal Consulting only`
   - Action: `Allow`
-  - Include rule → Selector: `Emails` → Value: `david.rug98@icloud.com`
+  - Include rule → Selector: `Emails` → Value: `consulting@liminality.space`
   - **Text controls** (under Connection settings): set to `Enable copying/pasting` (only matters for browser-based, but flip on principle)
 - **Identity provider**: One-time PIN (default; no extra setup)
 - Save
@@ -186,7 +186,7 @@ For other clients, the canonical form is:
 cloudflared access rdp --hostname rdp-<slug>.liminality.space --url localhost:23389
 ```
 
-First connection: browser tab opens for Cloudflare Access auth → enter `david.rug98@icloud.com` → check email for PIN → paste back. Subsequent connections within the session-token TTL skip this.
+First connection: browser tab opens for Cloudflare Access auth → enter `consulting@liminality.space` → check email for PIN → paste back. Subsequent connections within the session-token TTL skip this.
 
 **2. Connect Windows App to `localhost:23389`**
 
@@ -265,7 +265,7 @@ As of 2026-04-29:
 - ✅ Tunnel created (ID `5a1abd8a-2ba5-4f3e-a366-c0c043c001cc`)
 - ✅ Ingress rule configured
 - ✅ DNS CNAME live (`rdp-uro-karlsruhe.liminality.space`)
-- ✅ Cloudflare Access app `praxis-rdp-uro-karlsruhe` with policy gating to `david.rug98@icloud.com`
+- ✅ Cloudflare Access app `praxis-rdp-uro-karlsruhe` with policy gating to `consulting@liminality.space`
 - ✅ cloudflared.exe service running on `SERVERMO`
 - ✅ `david-consult` Windows local admin user created (in Administratoren + Remotedesktopbenutzer)
 - ✅ Connection verified end-to-end from Mac (clipboard + folder redirect tested)

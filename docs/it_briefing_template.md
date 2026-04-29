@@ -17,7 +17,7 @@ Vorlage unten — Platzhalter in `[eckigen Klammern]` ersetzen.
 <!-- BEGINN VORLAGE — alles unterhalb für den IT-Dienstleister -->
 
 **Liminal Consulting — David Rug**
-Karlsruhe | david.rug98@icloud.com
+Karlsruhe | consulting@liminality.space
 [Datum]
 
 **Betreff: Information über neu installierte Software auf dem Praxisserver [Servername] — [Praxisname]**
@@ -52,7 +52,7 @@ Entwicklungsarbeiten im Auftrag der Praxis durchzuführen.
 - Zugang nur nach **Zwei-Faktor-Authentifizierung** (E-Mail-Bestätigung über
   Cloudflare Access — die Plattform derselben Firma, die u. a. den
   Internetzugang vieler Unternehmen absichert)
-- Zugang ausschließlich für die E-Mail-Adresse `david.rug98@icloud.com` —
+- Zugang ausschließlich für die E-Mail-Adresse `consulting@liminality.space` —
   kein weiterer Nutzer ist autorisiert
 - Der Dienst kann jederzeit über `services.msc` gestoppt oder deinstalliert
   werden: `cloudflared.exe service uninstall`
@@ -83,7 +83,7 @@ Mit freundlichen Grüßen,
 
 David Rug
 Liminal Consulting
-david.rug98@icloud.com
+consulting@liminality.space
 
 *CC: [Praxisinhaber]*
 
