@@ -170,7 +170,17 @@ Save the password into:
 
 ### Mac side — daily usage
 
-**1. Open the RDP path through Cloudflare** — Mac terminal (one tab kept open during the session):
+**1. Open the RDP path through Cloudflare** — Mac terminal (one tab kept open during the session).
+
+For uro-karlsruhe, a shell alias `praxis-rdp` is defined in `~/.zshrc` — just run:
+
+```bash
+praxis-rdp
+```
+
+(Equivalent to `cloudflared access rdp --hostname rdp-uro-karlsruhe.liminality.space --url localhost:23389`.)
+
+For other clients, the canonical form is:
 
 ```bash
 cloudflared access rdp --hostname rdp-<slug>.liminality.space --url localhost:23389
