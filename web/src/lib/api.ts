@@ -140,6 +140,31 @@ export const api = {
 
 	intakeHealth: () => jfetch<{ ollama: { reachable: boolean; model_present?: boolean; expected_model: string; available_models?: string[]; error?: string } }>('/api/intake/health'),
 
+	intakeProfiles: () => jfetch<{
+		default: string;
+		profiles: Array<{ id: string; label: string; description: string; fields: string[]; labels: Record<string, string> }>;
+	}>('/api/intake/profiles'),
+
+	featureRequests: {
+		list: () => jfetch<Array<{
+			id: string; title: string; body: string; category: string;
+			status: string; submitted_by: string; submitted_by_role: string;
+			created_at: string; vote_count: number; user_voted: boolean;
+		}>>('/api/feature-requests'),
+		submit: (title: string, body: string, category = '') =>
+			jfetch<{ id: string }>('/api/feature-requests', {
+				method: 'POST',
+				body: JSON.stringify({ title, body, category })
+			}),
+		toggleVote: (id: string) =>
+			jfetch<{ voted: boolean }>(`/api/feature-requests/${id}/vote`, { method: 'POST' }),
+		changeStatus: (id: string, new_status: string) =>
+			jfetch<{ status: string }>(`/api/feature-requests/${id}/status`, {
+				method: 'POST',
+				body: JSON.stringify({ new_status })
+			}),
+	},
+
 	markSeen: (pid: string) =>
 		jfetch<{ ok: boolean; last_seen_at: string }>(`/api/dashboard/seen/${pid}`, { method: 'POST' }),
 
@@ -151,10 +176,10 @@ export const api = {
 
 	listInstances: (pid: string) =>
 		jfetch<ProcessInstance[]>(`/api/processes/${pid}/instances`),
-	createInstance: (pid: string, title: string) =>
+	createInstance: (pid: string, title: string, initial_state?: Record<string, unknown>) =>
 		jfetch<ProcessInstance>(`/api/processes/${pid}/instances`, {
 			method: 'POST',
-			body: JSON.stringify({ title })
+			body: JSON.stringify(initial_state ? { title, initial_state } : { title })
 		}),
 	getInstance: (pid: string, iid: string) =>
 		jfetch<ProcessInstance>(`/api/processes/${pid}/instances/${iid}`),

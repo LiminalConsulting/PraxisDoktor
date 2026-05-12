@@ -136,3 +136,29 @@ register(ProcessSpec(
     transition_types={"placeholder": {"feeds_back": False}},
     sort_order=80,
 ))
+
+# Feature-Request tool — every staff member can submit pain points / wishes.
+# This is the first tool that goes live for the entire team and seeds the
+# product backlog for everything else PraxisDoktor will build.
+register(ProcessSpec(
+    id="feature_requests",
+    display_name="Verbesserungs-Wünsche",
+    icon="message-circle-heart",
+    surface="tool",
+    phase="co_pilot",
+    roles=[
+        "praxisinhaber", "arzt",
+        "mfa_empfang", "mfa_behandlung", "mfa_abrechnung",
+        "praxismanager",
+    ],
+    inputs=["text"],
+    outputs=["notification"],
+    chat_attached=True,
+    transition_types={
+        "request_submitted": {"feeds_back": False},
+        "request_upvoted": {"feeds_back": True},
+        "request_status_changed": {"feeds_back": True},
+        "undo": {"feeds_back": False},
+    },
+    sort_order=4,  # second after team_chat for prominent placement
+))

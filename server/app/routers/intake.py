@@ -14,12 +14,31 @@ from ..auth import get_current_user, get_current_user_roles
 from ..config import get_settings
 from ..db import get_db
 from ..intake.health import ollama_status
+from ..intake.llm import PROFILES as _PROFILES, DEFAULT_PROFILE
 from ..models import ProcessInstance, Transition, User
 from ..routers.processes import _check_access
 from ..ws import broadcast
 
 router = APIRouter(prefix="/api/intake", tags=["intake"])
 _settings = get_settings()
+
+
+@router.get("/profiles")
+async def list_profiles(roles: Annotated[list[str], Depends(get_current_user_roles)]):
+    """List available extraction profiles for the patient_intake tool."""
+    return {
+        "default": DEFAULT_PROFILE,
+        "profiles": [
+            {
+                "id": p.id,
+                "label": p.label,
+                "description": p.description,
+                "fields": p.fields,
+                "labels": p.labels,
+            }
+            for p in _PROFILES.values()
+        ],
+    }
 
 
 def _audio_path_for(instance_id: str, suffix: str) -> Path:

@@ -24,9 +24,11 @@ async def run_intake_pipeline(payload: dict[str, Any]) -> None:
         inst = await db.get(ProcessInstance, instance_id)
         if not inst:
             return
-        patient_ref = (inst.current_state or {}).get("patient_ref", "") or inst.title
-        doctor_name = (inst.current_state or {}).get("doctor_name", "")
-        prior_ocr = (inst.current_state or {}).get("ocr_text", "")
+        state0 = inst.current_state or {}
+        patient_ref = state0.get("patient_ref", "") or inst.title
+        doctor_name = state0.get("doctor_name", "")
+        prior_ocr = state0.get("ocr_text", "")
+        profile_id = state0.get("profile_id") or l_mod.DEFAULT_PROFILE
 
     # build vocab
     vocab_terms = v_mod.get_all()
@@ -52,10 +54,10 @@ async def run_intake_pipeline(payload: dict[str, Any]) -> None:
                 "transcript": transcript,
             })
 
-    # extract
+    # extract using the configured profile (stammdaten or klinisch)
     try:
         extracted = await loop.run_in_executor(
-            None, l_mod.extract_fields, transcript, prior_ocr, patient_ref, doctor_name
+            None, l_mod.extract_fields, transcript, prior_ocr, patient_ref, doctor_name, profile_id
         )
         extraction_error = None
     except l_mod.OllamaUnavailable as e:

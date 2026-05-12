@@ -6,6 +6,8 @@
 	import PatientIntake from '$lib/components/processes/PatientIntake.svelte';
 	import Patientenakte from '$lib/components/processes/Patientenakte.svelte';
 	import Rechnungspruefung from '$lib/components/processes/Rechnungspruefung.svelte';
+	import Anamnesebogen from '$lib/components/processes/Anamnesebogen.svelte';
+	import FeatureRequests from '$lib/components/processes/FeatureRequests.svelte';
 	import TeamChatView from '$lib/components/processes/TeamChatView.svelte';
 	import PlaceholderTool from '$lib/components/processes/PlaceholderTool.svelte';
 	import DashboardOnlyView from '$lib/components/processes/DashboardOnlyView.svelte';
@@ -52,6 +54,18 @@
 	<ToolLayout processId={pid} showChatToggle>
 		{#snippet children()}
 			<Rechnungspruefung />
+		{/snippet}
+	</ToolLayout>
+{:else if pid === 'anamnesebogen'}
+	<ToolLayout processId={pid} showChatToggle>
+		{#snippet children()}
+			<Anamnesebogen />
+		{/snippet}
+	</ToolLayout>
+{:else if pid === 'feature_requests'}
+	<ToolLayout processId={pid} showChatToggle>
+		{#snippet children()}
+			<FeatureRequests />
 		{/snippet}
 	</ToolLayout>
 {:else if pid === 'team_chat'}

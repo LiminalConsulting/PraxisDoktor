@@ -10,7 +10,7 @@ from . import jobs
 from .config import get_settings
 from .db import SessionLocal
 from .intake.pipeline import run_intake_pipeline, run_intake_ocr
-from .routers import admin, auth as auth_router, chat, dashboard, intake, patientenakte, processes, public, rechnungspruefung
+from .routers import admin, anamnese as anamnese_router, auth as auth_router, chat, dashboard, demo_reset as demo_reset_router, feature_requests as feature_requests_router, intake, patientenakte, processes, public, rechnungspruefung
 from .sync import sync_registry
 from .ws import router as ws_router
 
@@ -47,6 +47,9 @@ app.include_router(patientenakte.router)
 app.include_router(rechnungspruefung.router)
 app.include_router(admin.router)
 app.include_router(public.router)
+app.include_router(anamnese_router.router)
+app.include_router(feature_requests_router.router)
+app.include_router(demo_reset_router.router)
 app.include_router(ws_router)
 
 
