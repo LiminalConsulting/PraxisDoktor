@@ -1,24 +1,16 @@
 # clients/
 
-Per-practice discovery material: raw transcripts, links, observations, and
-anything else worth tracking in git as we map a new practice's workflow.
+Historical artifact from when PraxisDoktor was scoped as a multi-practice
+template. Currently empty.
 
-This is **separate** from `tooling/clients/<slug>/`, which is gitignored and
-holds Cloudflare/secret config. Same slug per practice; different purposes:
+Strategisch ist PraxisDoktor jetzt als Pilot auf **eine spezifische
+Praxis** zugeschnitten: uro-karlsruhe (Papas Praxis). Andere Praxen
+sind in eigene Liminal-Consulting-Repositories umgezogen — z.B.
+`LiminalConsulting/Praxiskochendoerfer` für Barbara.
 
-| Path | Tracked? | Holds |
-|---|---|---|
-| `clients/<slug>/` | yes | transcripts, contact, observations, plans |
-| `tooling/clients/<slug>/` | no (gitignored) | env files, tunnel tokens, DB extracts |
+Dieser Ordner kann in einer späteren Aufräum-Session entfernt werden.
 
-## Slug convention
+## Slug-Konvention (zur Zeit als dieses Verzeichnis aktiv war)
 
-`<firstname>-<lastname>` for solo/named practices (e.g. `barbara-kochendoerfer`),
-or the practice's own short name where it has one (e.g. `uro-karlsruhe` —
-Papa's practice, which predates this folder and currently lives only under
-`tooling/clients/`).
-
-## What goes inside `<slug>/`
-
-Whatever helps. No fixed schema yet — the structure will firm up after a few
-practices. Typical files: `interview-YYYY-MM-DD.md`, `links.md`, `notes.md`.
+`<firstname>-<lastname>` für einzelne genannte Praxen, oder der
+Praxis-eigene Kurzname (z.B. `uro-karlsruhe`).
