@@ -8,18 +8,34 @@
 
 	const PID = 'patient_intake';
 
-	const FIELDS = [
-		'nachname', 'vorname', 'geburtsdatum', 'geschlecht',
-		'titel', 'anrede', 'strasse', 'hausnr', 'plz', 'ort',
-		'telefon_privat', 'telefon_mobil', 'email', 'muttersprache'
-	];
-	const LABELS: Record<string, string> = {
-		nachname: 'Nachname', vorname: 'Vorname', geburtsdatum: 'Geburtsdatum',
-		geschlecht: 'Geschlecht', titel: 'Titel', anrede: 'Anrede',
-		strasse: 'Straße', hausnr: 'Hausnr.', plz: 'PLZ', ort: 'Ort',
-		telefon_privat: 'Telefon (privat)', telefon_mobil: 'Telefon (mobil)',
-		email: 'E-Mail', muttersprache: 'Muttersprache'
+	type Profile = { id: string; label: string; description: string; fields: string[]; labels: Record<string, string> };
+	const FALLBACK_PROFILE: Profile = {
+		id: 'stammdaten',
+		label: 'Patientenaufnahme — Stammdaten',
+		description: '',
+		fields: [
+			'nachname', 'vorname', 'geburtsdatum', 'geschlecht',
+			'titel', 'anrede', 'strasse', 'hausnr', 'plz', 'ort',
+			'telefon_privat', 'telefon_mobil', 'email', 'muttersprache'
+		],
+		labels: {
+			nachname: 'Nachname', vorname: 'Vorname', geburtsdatum: 'Geburtsdatum',
+			geschlecht: 'Geschlecht', titel: 'Titel', anrede: 'Anrede',
+			strasse: 'Straße', hausnr: 'Hausnr.', plz: 'PLZ', ort: 'Ort',
+			telefon_privat: 'Telefon (privat)', telefon_mobil: 'Telefon (mobil)',
+			email: 'E-Mail', muttersprache: 'Muttersprache'
+		}
 	};
+
+	let profiles = $state<Profile[]>([FALLBACK_PROFILE]);
+	let defaultProfileId = $state<string>('stammdaten');
+	let selectedProfileId = $state<string>('stammdaten');
+
+	const currentProfile = $derived(
+		profiles.find((p) => p.id === (current?.current_state?.profile_id ?? selectedProfileId)) ?? FALLBACK_PROFILE
+	);
+	const FIELDS = $derived(currentProfile.fields);
+	const LABELS = $derived(currentProfile.labels);
 
 	let instances = $state<ProcessInstance[]>([]);
 	let current = $state<ProcessInstance | null>(null);
@@ -47,13 +63,16 @@
 	function syncFromInstance(inst: ProcessInstance) {
 		current = inst;
 		const fields = (inst.current_state?.fields ?? {}) as Record<string, { value: any; status: string }>;
+		const profileId = (inst.current_state?.profile_id as string) ?? selectedProfileId;
+		const profile = profiles.find((p) => p.id === profileId) ?? FALLBACK_PROFILE;
 		const newVals: Record<string, string> = {};
 		const newOrig: Record<string, string> = {};
 		const newStatus: Record<string, 'pending' | 'accepted' | 'rejected' | 'corrected'> = {};
-		for (const f of FIELDS) {
+		for (const f of profile.fields) {
 			const v = fields[f];
-			newVals[f] = v?.value ?? '';
-			newOrig[f] = v?.value ?? '';
+			const display = formatFieldValue(v?.value);
+			newVals[f] = display;
+			newOrig[f] = display;
 			newStatus[f] = (v?.status as any) ?? 'pending';
 		}
 		fieldValues = newVals;
@@ -62,8 +81,18 @@
 		recState = inst.status === 'processing' ? 'transcribing' : 'idle';
 	}
 
+	function formatFieldValue(v: any): string {
+		if (v == null) return '';
+		if (Array.isArray(v)) return v.join(', ');
+		return String(v);
+	}
+
 	async function startNew() {
-		const inst = await api.createInstance(PID, title || 'Patient ohne Name');
+		const inst = await api.createInstance(
+			PID,
+			title || 'Patient ohne Name',
+			{ profile_id: selectedProfileId }
+		);
 		current = inst;
 		syncFromInstance(inst);
 		title = '';
@@ -183,7 +212,21 @@
 		}
 	}
 
+	async function loadProfiles() {
+		try {
+			const res = await api.intakeProfiles();
+			if (res.profiles?.length) {
+				profiles = res.profiles as Profile[];
+				defaultProfileId = res.default;
+				selectedProfileId = res.default;
+			}
+		} catch {
+			// keep fallback profile
+		}
+	}
+
 	onMount(() => {
+		loadProfiles();
 		loadInstances();
 		checkOllama();
 		const handler = (e: KeyboardEvent) => {
@@ -214,22 +257,41 @@
 			<p class="mt-1 text-sm text-ink-500">
 				Geben Sie den Patientennamen ein und starten Sie die Aufnahme. Die Sitzung erscheint sofort in der Liste.
 			</p>
-			<form onsubmit={(e) => { e.preventDefault(); startNew(); }} class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
-				<div class="flex-1">
-					<label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-praxis-700" for="title">
-						Patientenname
+			<form onsubmit={(e) => { e.preventDefault(); startNew(); }} class="mt-4 space-y-3">
+				<div>
+					<label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-praxis-700" for="profile">
+						Extraktionsmodus
 					</label>
-					<input
-						id="title"
-						type="text"
-						bind:value={title}
-						placeholder="Müller, Hans"
+					<select
+						id="profile"
+						bind:value={selectedProfileId}
 						class="w-full rounded-lg border border-praxis-300 px-3 py-2 text-sm focus:border-praxis-500 focus:outline-none focus:ring-2 focus:ring-praxis-500/20"
-					/>
+					>
+						{#each profiles as p (p.id)}
+							<option value={p.id}>{p.label}</option>
+						{/each}
+					</select>
+					{#if profiles.find(p => p.id === selectedProfileId)?.description}
+						<p class="mt-1 text-[11px] text-ink-500">{profiles.find(p => p.id === selectedProfileId)?.description}</p>
+					{/if}
 				</div>
-				<button class="rounded-lg bg-praxis-700 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-praxis-800">
-					Sitzung starten →
-				</button>
+				<div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+					<div class="flex-1">
+						<label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-praxis-700" for="title">
+							Patientenname / Sitzungstitel
+						</label>
+						<input
+							id="title"
+							type="text"
+							bind:value={title}
+							placeholder="Müller, Hans"
+							class="w-full rounded-lg border border-praxis-300 px-3 py-2 text-sm focus:border-praxis-500 focus:outline-none focus:ring-2 focus:ring-praxis-500/20"
+						/>
+					</div>
+					<button class="rounded-lg bg-praxis-700 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-praxis-800">
+						Sitzung starten →
+					</button>
+				</div>
 			</form>
 		</section>
 

@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     session_cookie_name: str = "praxisdoktor_session"
     session_max_age_hours: int = 168
     ollama_host: str = "http://localhost:11434"
-    ollama_model: str = "llama3.1:8b"
+    ollama_model: str = "gemma4:e4b"
     audio_dir: str = "./audio"
     environment: str = "development"
     data_dir: str = "./var"

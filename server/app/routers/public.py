@@ -109,7 +109,13 @@ async def anamnese_submit(
     body: Annotated[dict[str, Any], Body()] = ...,
 ):
     """Patient submits a filled-in anamnesis form from the public site.
-    Staff review and attach to the patient record via the Anamnesebögen tool."""
+    Staff review and attach to the patient record via the Anamnesebögen tool.
+
+    Generates anamnesis-style prose from the structured answers and stores it
+    in the instance state so the MFA can copy-paste with one click into MO.
+    """
+    from ..anamnese.prose import generate_anamnese_prose
+
     name = (body.get("name") or "").strip()
     dob = (body.get("dob") or "").strip()
     answers = body.get("answers") or {}
@@ -119,12 +125,19 @@ async def anamnese_submit(
     if not isinstance(answers, dict):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "answers must be object")
 
+    anamnese_prose = generate_anamnese_prose(answers)
+
     title = f"Anamnese: {name}"
     iid = await _open_instance(
         db, "anamnesebogen", title, "form_submitted",
-        {"name": name, "dob": dob, "answers": answers},
+        {
+            "name": name,
+            "dob": dob,
+            "answers": answers,
+            "anamnese_prose": anamnese_prose,
+        },
     )
-    return {"id": iid, "ok": True}
+    return {"id": iid, "ok": True, "anamnese_prose": anamnese_prose}
 
 
 @router.post("/anamnese-start", status_code=201, dependencies=[Depends(_require_public_key)])

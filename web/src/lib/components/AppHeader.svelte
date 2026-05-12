@@ -1,13 +1,42 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { logout, me } from '$lib/stores/auth';
-	import { Home, LogOut, Settings, Stethoscope } from 'lucide-svelte';
+	import { Home, LogOut, Settings, Stethoscope, RotateCcw } from 'lucide-svelte';
 
 	let showAdmin = $derived(($me?.roles ?? []).includes('praxisinhaber'));
+	let resetBusy = $state(false);
+	let resetMsg = $state<string | null>(null);
 
 	async function doLogout() {
 		await logout();
 		await goto('/login');
+	}
+
+	async function resetDemo() {
+		const ok = window.confirm(
+			'Demo zurücksetzen?\n\nAlle Eingaben in Anamnesebögen, Verbesserungs-Wünsche und Patientenaufnahme werden gelöscht.\nDie Werkzeuge und Konten bleiben bestehen.'
+		);
+		if (!ok) return;
+		resetBusy = true;
+		resetMsg = null;
+		try {
+			const res = await fetch('/api/demo/reset', {
+				method: 'POST',
+				credentials: 'include',
+			});
+			if (!res.ok) throw new Error(await res.text());
+			const data = await res.json();
+			const total = Object.values(data.wiped_instances ?? {}).reduce((a: number, b: any) => a + Number(b), 0);
+			resetMsg = `${total} Einträge gelöscht`;
+			setTimeout(() => (resetMsg = null), 3000);
+			// reload current page to reflect cleared state
+			window.location.reload();
+		} catch (e) {
+			resetMsg = 'Fehler beim Zurücksetzen';
+			setTimeout(() => (resetMsg = null), 3000);
+		} finally {
+			resetBusy = false;
+		}
 	}
 </script>
 
@@ -37,6 +66,17 @@
 
 	<div class="flex items-center gap-1.5 text-sm">
 		{#if showAdmin}
+			{#if resetMsg}
+				<span class="rounded-md bg-white/15 px-2 py-1 text-[11px]">{resetMsg}</span>
+			{/if}
+			<button
+				class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-white/80 transition hover:bg-white/10 hover:text-white disabled:opacity-50"
+				onclick={resetDemo}
+				disabled={resetBusy}
+				title="Demo zurücksetzen (löscht Eingaben in Anamnesebögen, Verbesserungs-Wünsche, Patientenaufnahme)"
+			>
+				<RotateCcw size={15} class={resetBusy ? 'animate-spin' : ''} /> Demo zurücksetzen
+			</button>
 			<button
 				class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-white/80 transition hover:bg-white/10 hover:text-white"
 				onclick={() => goto('/admin')}

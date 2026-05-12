@@ -81,16 +81,18 @@ async def create_instance(
     user: Annotated[User, Depends(get_current_user)],
     roles: Annotated[list[str], Depends(get_current_user_roles)],
     title: Annotated[str, Body(embed=True)] = "",
+    initial_state: Annotated[dict | None, Body(embed=True)] = None,
 ):
     await _check_access(db, process_id, roles)
     iid = uuid.uuid4().hex
+    state = dict(initial_state or {})
     inst = ProcessInstance(
         id=iid,
         process_id=process_id,
         title=title,
         created_by=user.id,
         status="open",
-        current_state={},
+        current_state=state,
     )
     db.add(inst)
     db.add(Transition(
@@ -98,11 +100,11 @@ async def create_instance(
         process_instance_id=iid,
         actor=user.id,
         type="session_started",
-        payload={"title": title},
+        payload={"title": title, **state},
         feeds_back=False,
     ))
     await db.commit()
-    return {"id": iid, "process_id": process_id, "title": title, "status": "open", "current_state": {}}
+    return {"id": iid, "process_id": process_id, "title": title, "status": "open", "current_state": state}
 
 
 @router.get("/{process_id}/instances/{instance_id}")
